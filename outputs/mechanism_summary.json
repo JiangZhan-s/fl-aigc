@@ -1,0 +1,28 @@
+{
+  "active_set": {
+    "solver": "active_set",
+    "server_utility": 0.487535746105926,
+    "budget_used": 0.06288092056074056,
+    "budget_utilization": 0.10052225113717862,
+    "participation_rate": 1.0,
+    "avg_q": 0.0,
+    "corr_lambda_q": 0.0,
+    "runtime": 0.000705932000073517,
+    "ir_violations": 0,
+    "ic_regret_max": 0.0,
+    "ic_regret_mean": 0.0,
+    "iterations": 1,
+    "logs": [
+      "active-set is a heuristic that returns a feasible mode-stable solution",
+      "the final fixed-mode continuous subproblem is solved by the KKT solver",
+      "iteration 1: feasible, cost=0.062881, utility=0.487536, ir_violations=0, max_ic_regret=0.000e+00"
+    ]
+  },
+  "meta": {
+    "dataset": "fmnist",
+    "num_clients": 20,
+    "budget": 0.625542303812213,
+    "budget_ratio": 0.3,
+    "total_runtime": 41.28902961299991
+  }
+}

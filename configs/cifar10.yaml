@@ -1,0 +1,46 @@
+seed: 42
+
+dataset:
+  name: cifar10
+  root: ./data
+  download: true
+  num_clients: 50
+  dirichlet_alpha: 0.1
+  min_size: 10
+  num_classes: 10
+  public_fraction: 0.02
+
+mechanism:
+  lambda_base: 1.0
+  alpha_range: [0.05, 0.30]
+  beta_range: [0.10, 0.80]
+  S_range: [0.01, 0.05]
+  budget_ratio: 0.4
+  exact_max_clients: 12
+  active_set_max_iter: 30
+  tol: 1.0e-8
+
+fl:
+  model: smallcnn
+  rounds: 200
+  local_epochs: 5
+  batch_size: 32
+  lr: 0.01
+  momentum: 0.9
+  optimizer: sgd
+  client_fraction: 0.2
+  weight_decay: 0.0
+  max_grad_norm: 10.0
+
+aigc_proxy:
+  enabled: true
+  max_extra_ratio: 1.0
+  allow_replacement: true
+
+verification:
+  enabled: true
+  method: geodesic
+  tau: 0.5
+
+output:
+  dir: ./outputs
