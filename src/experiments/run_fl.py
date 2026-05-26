@@ -13,10 +13,12 @@ from src.data.datasets import get_dataset
 from src.data.partition import dirichlet_partition
 from src.data.quality import compute_lambdas, global_label_distribution
 from src.experiments.run_baselines import (
+    baseline_binary_aigc,
     baseline_data_size_proportional,
     baseline_fixed_price,
     baseline_no_aigc,
     baseline_proposed_active_set,
+    baseline_quality_gap_proportional,
     baseline_random_incentive,
 )
 from src.experiments.run_mechanism import build_mechanism_params, compute_budget
@@ -196,10 +198,18 @@ def _run_method(params, budget, method: str, seed: int, config=None):
         return baseline_no_aigc(params, budget)
     if normalized in {"random", "random_incentive", "randomincentive"}:
         return baseline_random_incentive(params, budget, seed=seed)
+    if normalized in {"binary", "binary_aigc", "binaryaigc"}:
+        return baseline_binary_aigc(
+            params,
+            budget,
+            rho=float(mechanism_cfg.get("binary_rho", 0.5)),
+        )
     if normalized in {"fixed_price", "fixedprice"}:
         return baseline_fixed_price(params, budget)
     if normalized in {"data_size", "data_size_proportional", "datasizeproportional"}:
         return baseline_data_size_proportional(params, budget)
+    if normalized in {"quality_gap", "quality_gap_proportional", "qualitygapproportional"}:
+        return baseline_quality_gap_proportional(params, budget)
     if normalized in {"proposed", "active_set", "proposed_active_set", "proposedactiveset"}:
         return baseline_proposed_active_set(
             params,

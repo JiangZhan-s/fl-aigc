@@ -136,6 +136,41 @@ def baseline_random_incentive(params: MechanismParams, B: float, seed: int = 0) 
     return BaselineOutput("RandomIncentive", result, costs, time.perf_counter() - start, {})
 
 
+def baseline_binary_aigc(params: MechanismParams, B: float, rho: float = 0.5) -> BaselineOutput:
+    """Binary AIGC baseline: each selected client uses q_bar=rho*lambda_k."""
+    start = time.perf_counter()
+    q, p, x, costs, modes = _empty_arrays(params)
+    rho = float(np.clip(rho, 0.0, 1.0))
+    candidates = []
+
+    for idx in range(len(params.d)):
+        q_candidate = float(rho * params.lambda_k[idx])
+        if q_candidate <= 1e-12:
+            continue
+        cost, price, mode = _try_min_payment(params, idx, q_candidate)
+        if not np.isfinite(cost) or cost <= 0:
+            continue
+        gain = params.V[idx] * (
+            phi(params.lambda_k[idx], q_candidate, params.lambda_base)
+            - phi(params.lambda_k[idx], 0.0, params.lambda_base)
+        )
+        candidates.append((gain / cost, gain, idx, q_candidate, cost, price, mode))
+
+    spent = 0.0
+    for _, _, idx, q_candidate, cost, price, mode in sorted(candidates, reverse=True):
+        if spent + cost > B + 1e-9:
+            continue
+        q[idx] = q_candidate
+        p[idx] = price
+        x[idx] = 1.0
+        costs[idx] = cost
+        modes[idx] = mode
+        spent += cost
+
+    result = _make_result(params, q, p, x, costs, modes)
+    return BaselineOutput("BinaryAIGC", result, costs, time.perf_counter() - start, {"rho": rho})
+
+
 def _fixed_price_result(params: MechanismParams, price: float) -> tuple:
     q, p, x, costs, modes = _empty_arrays(params)
     for idx in range(len(params.d)):
@@ -239,6 +274,27 @@ def baseline_data_size_proportional(params: MechanismParams, B: float) -> Baseli
 
     result = _make_result(params, q, p, x, costs, modes)
     return BaselineOutput("DataSizeProportional", result, costs, time.perf_counter() - start, {})
+
+
+def baseline_quality_gap_proportional(params: MechanismParams, B: float) -> BaselineOutput:
+    """Allocate budget in proportion to each client's quality gap lambda_k."""
+    start = time.perf_counter()
+    q, p, x, costs, modes = _empty_arrays(params)
+    total_gap = float(np.sum(params.lambda_k))
+
+    for idx in range(len(params.d)):
+        budget_share = B * params.lambda_k[idx] / total_gap if total_gap > 0 else 0.0
+        q_i, p_i, cost_i, mode_i = _best_affordable_q(params, idx, budget_share)
+        if mode_i == "exit":
+            continue
+        q[idx] = q_i
+        p[idx] = p_i
+        x[idx] = 1.0
+        costs[idx] = cost_i
+        modes[idx] = mode_i
+
+    result = _make_result(params, q, p, x, costs, modes)
+    return BaselineOutput("QualityGapProportional", result, costs, time.perf_counter() - start, {})
 
 
 def baseline_proposed_active_set(
@@ -351,8 +407,10 @@ def run_baselines_experiment(config, output_dir: Path):
     outputs = [
         baseline_no_aigc(params, budget),
         baseline_random_incentive(params, budget, seed=seed),
+        baseline_binary_aigc(params, budget, rho=float(mechanism_cfg.get("binary_rho", 0.5))),
         baseline_fixed_price(params, budget),
         baseline_data_size_proportional(params, budget),
+        baseline_quality_gap_proportional(params, budget),
         baseline_proposed_active_set(
             params,
             budget,

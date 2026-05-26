@@ -148,8 +148,10 @@ python -m src.experiments.run_baselines --config configs/fmnist.yaml
 ```text
 NoAIGC
 RandomIncentive
+BinaryAIGC
 FixedPrice
 DataSizeProportional
+QualityGapProportional
 ProposedActiveSet
 ```
 
@@ -195,8 +197,10 @@ python -m src.experiments.run_fl \
 ```text
 no_aigc
 random_incentive
+binary_aigc
 fixed_price
 data_size_proportional
+quality_gap_proportional
 proposed_active_set
 ```
 
@@ -324,7 +328,7 @@ python -m src.experiments.run_mechanism \
 
 ### 4. 三个数据集的 baseline 实验
 
-运行 `NoAIGC`、`RandomIncentive`、`FixedPrice`、`DataSizeProportional` 和 `ProposedActiveSet`。
+运行 `NoAIGC`、`RandomIncentive`、`BinaryAIGC`、`FixedPrice`、`DataSizeProportional`、`QualityGapProportional` 和 `ProposedActiveSet`。
 
 ```bash
 python -m src.experiments.run_baselines \
@@ -379,8 +383,10 @@ FMNIST：
 ```bash
 python -m src.experiments.run_fl --config configs/fmnist.yaml --method no_aigc --rounds 100 --clients 50 --subset-size 0 --output-dir outputs/fmnist/fl/no_aigc
 python -m src.experiments.run_fl --config configs/fmnist.yaml --method random_incentive --rounds 100 --clients 50 --subset-size 0 --output-dir outputs/fmnist/fl/random_incentive
+python -m src.experiments.run_fl --config configs/fmnist.yaml --method binary_aigc --rounds 100 --clients 50 --subset-size 0 --output-dir outputs/fmnist/fl/binary_aigc
 python -m src.experiments.run_fl --config configs/fmnist.yaml --method fixed_price --rounds 100 --clients 50 --subset-size 0 --output-dir outputs/fmnist/fl/fixed_price
 python -m src.experiments.run_fl --config configs/fmnist.yaml --method data_size_proportional --rounds 100 --clients 50 --subset-size 0 --output-dir outputs/fmnist/fl/data_size_proportional
+python -m src.experiments.run_fl --config configs/fmnist.yaml --method quality_gap_proportional --rounds 100 --clients 50 --subset-size 0 --output-dir outputs/fmnist/fl/quality_gap_proportional
 python -m src.experiments.run_fl --config configs/fmnist.yaml --method proposed_active_set --rounds 100 --clients 50 --subset-size 0 --output-dir outputs/fmnist/fl/proposed_active_set
 ```
 
@@ -389,8 +395,10 @@ CIFAR10：
 ```bash
 python -m src.experiments.run_fl --config configs/cifar10.yaml --method no_aigc --rounds 200 --clients 50 --subset-size 0 --output-dir outputs/cifar10/fl/no_aigc
 python -m src.experiments.run_fl --config configs/cifar10.yaml --method random_incentive --rounds 200 --clients 50 --subset-size 0 --output-dir outputs/cifar10/fl/random_incentive
+python -m src.experiments.run_fl --config configs/cifar10.yaml --method binary_aigc --rounds 200 --clients 50 --subset-size 0 --output-dir outputs/cifar10/fl/binary_aigc
 python -m src.experiments.run_fl --config configs/cifar10.yaml --method fixed_price --rounds 200 --clients 50 --subset-size 0 --output-dir outputs/cifar10/fl/fixed_price
 python -m src.experiments.run_fl --config configs/cifar10.yaml --method data_size_proportional --rounds 200 --clients 50 --subset-size 0 --output-dir outputs/cifar10/fl/data_size_proportional
+python -m src.experiments.run_fl --config configs/cifar10.yaml --method quality_gap_proportional --rounds 200 --clients 50 --subset-size 0 --output-dir outputs/cifar10/fl/quality_gap_proportional
 python -m src.experiments.run_fl --config configs/cifar10.yaml --method proposed_active_set --rounds 200 --clients 50 --subset-size 0 --output-dir outputs/cifar10/fl/proposed_active_set
 ```
 
@@ -399,8 +407,10 @@ CIFAR100：
 ```bash
 python -m src.experiments.run_fl --config configs/cifar100.yaml --method no_aigc --rounds 200 --clients 50 --subset-size 0 --output-dir outputs/cifar100/fl/no_aigc
 python -m src.experiments.run_fl --config configs/cifar100.yaml --method random_incentive --rounds 200 --clients 50 --subset-size 0 --output-dir outputs/cifar100/fl/random_incentive
+python -m src.experiments.run_fl --config configs/cifar100.yaml --method binary_aigc --rounds 200 --clients 50 --subset-size 0 --output-dir outputs/cifar100/fl/binary_aigc
 python -m src.experiments.run_fl --config configs/cifar100.yaml --method fixed_price --rounds 200 --clients 50 --subset-size 0 --output-dir outputs/cifar100/fl/fixed_price
 python -m src.experiments.run_fl --config configs/cifar100.yaml --method data_size_proportional --rounds 200 --clients 50 --subset-size 0 --output-dir outputs/cifar100/fl/data_size_proportional
+python -m src.experiments.run_fl --config configs/cifar100.yaml --method quality_gap_proportional --rounds 200 --clients 50 --subset-size 0 --output-dir outputs/cifar100/fl/quality_gap_proportional
 python -m src.experiments.run_fl --config configs/cifar100.yaml --method proposed_active_set --rounds 200 --clients 50 --subset-size 0 --output-dir outputs/cifar100/fl/proposed_active_set
 ```
 
@@ -412,8 +422,10 @@ python -m src.experiments.run_fl --config configs/cifar100.yaml --method propose
 python scripts/plot_results.py \
   --fl-csv outputs/fmnist/fl/no_aigc/fl_metrics.csv \
   --fl-csv outputs/fmnist/fl/random_incentive/fl_metrics.csv \
+  --fl-csv outputs/fmnist/fl/binary_aigc/fl_metrics.csv \
   --fl-csv outputs/fmnist/fl/fixed_price/fl_metrics.csv \
   --fl-csv outputs/fmnist/fl/data_size_proportional/fl_metrics.csv \
+  --fl-csv outputs/fmnist/fl/quality_gap_proportional/fl_metrics.csv \
   --fl-csv outputs/fmnist/fl/proposed_active_set/fl_metrics.csv \
   --baseline-csv outputs/fmnist/baselines/baseline_clients.csv \
   --baseline-json outputs/fmnist/baselines/baseline_summary.json \
@@ -430,8 +442,10 @@ python scripts/plot_results.py \
 python scripts/plot_results.py \
   --fl-csv outputs/cifar10/fl/no_aigc/fl_metrics.csv \
   --fl-csv outputs/cifar10/fl/random_incentive/fl_metrics.csv \
+  --fl-csv outputs/cifar10/fl/binary_aigc/fl_metrics.csv \
   --fl-csv outputs/cifar10/fl/fixed_price/fl_metrics.csv \
   --fl-csv outputs/cifar10/fl/data_size_proportional/fl_metrics.csv \
+  --fl-csv outputs/cifar10/fl/quality_gap_proportional/fl_metrics.csv \
   --fl-csv outputs/cifar10/fl/proposed_active_set/fl_metrics.csv \
   --baseline-csv outputs/cifar10/baselines/baseline_clients.csv \
   --baseline-json outputs/cifar10/baselines/baseline_summary.json \
@@ -448,8 +462,10 @@ python scripts/plot_results.py \
 python scripts/plot_results.py \
   --fl-csv outputs/cifar100/fl/no_aigc/fl_metrics.csv \
   --fl-csv outputs/cifar100/fl/random_incentive/fl_metrics.csv \
+  --fl-csv outputs/cifar100/fl/binary_aigc/fl_metrics.csv \
   --fl-csv outputs/cifar100/fl/fixed_price/fl_metrics.csv \
   --fl-csv outputs/cifar100/fl/data_size_proportional/fl_metrics.csv \
+  --fl-csv outputs/cifar100/fl/quality_gap_proportional/fl_metrics.csv \
   --fl-csv outputs/cifar100/fl/proposed_active_set/fl_metrics.csv \
   --baseline-csv outputs/cifar100/baselines/baseline_clients.csv \
   --baseline-json outputs/cifar100/baselines/baseline_summary.json \
@@ -622,8 +638,10 @@ python scripts/plot_results.py \
 ```text
 no_aigc
 random_incentive
+binary_aigc
 fixed_price
 data_size_proportional
+quality_gap_proportional
 proposed_active_set
 ```
 
@@ -633,7 +651,7 @@ FMNIST：
 
 ```bash
 for tag in 0p05 0p1 0p3 0p5; do
-  for method in no_aigc random_incentive fixed_price data_size_proportional proposed_active_set; do
+  for method in no_aigc random_incentive binary_aigc fixed_price data_size_proportional quality_gap_proportional proposed_active_set; do
     python -m src.experiments.run_fl \
       --config outputs/config_sweeps/fmnist/alpha_${tag}.yaml \
       --method ${method} \
@@ -649,7 +667,7 @@ CIFAR10：
 
 ```bash
 for tag in 0p05 0p1 0p3 0p5; do
-  for method in no_aigc random_incentive fixed_price data_size_proportional proposed_active_set; do
+  for method in no_aigc random_incentive binary_aigc fixed_price data_size_proportional quality_gap_proportional proposed_active_set; do
     python -m src.experiments.run_fl \
       --config outputs/config_sweeps/cifar10/alpha_${tag}.yaml \
       --method ${method} \
@@ -665,7 +683,7 @@ CIFAR100：
 
 ```bash
 for tag in 0p05 0p1 0p3 0p5; do
-  for method in no_aigc random_incentive fixed_price data_size_proportional proposed_active_set; do
+  for method in no_aigc random_incentive binary_aigc fixed_price data_size_proportional quality_gap_proportional proposed_active_set; do
     python -m src.experiments.run_fl \
       --config outputs/config_sweeps/cifar100/alpha_${tag}.yaml \
       --method ${method} \
@@ -688,8 +706,10 @@ for tag in 0p05 0p1 0p3 0p5; do
   python scripts/plot_results.py \
     --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/no_aigc/fl_metrics.csv \
     --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/random_incentive/fl_metrics.csv \
+    --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/binary_aigc/fl_metrics.csv \
     --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/fixed_price/fl_metrics.csv \
     --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/data_size_proportional/fl_metrics.csv \
+    --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/quality_gap_proportional/fl_metrics.csv \
     --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/proposed_active_set/fl_metrics.csv \
     --baseline-csv outputs/fmnist_alpha_sweep/alpha_${tag}/baselines/baseline_clients.csv \
     --baseline-json outputs/fmnist_alpha_sweep/alpha_${tag}/baselines/baseline_summary.json \
@@ -704,8 +724,10 @@ for tag in 0p05 0p1 0p3 0p5; do
   python scripts/plot_results.py \
     --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/no_aigc/fl_metrics.csv \
     --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/random_incentive/fl_metrics.csv \
+    --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/binary_aigc/fl_metrics.csv \
     --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/fixed_price/fl_metrics.csv \
     --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/data_size_proportional/fl_metrics.csv \
+    --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/quality_gap_proportional/fl_metrics.csv \
     --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/proposed_active_set/fl_metrics.csv \
     --baseline-csv outputs/cifar10_alpha_sweep/alpha_${tag}/baselines/baseline_clients.csv \
     --baseline-json outputs/cifar10_alpha_sweep/alpha_${tag}/baselines/baseline_summary.json \
@@ -720,8 +742,10 @@ for tag in 0p05 0p1 0p3 0p5; do
   python scripts/plot_results.py \
     --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/no_aigc/fl_metrics.csv \
     --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/random_incentive/fl_metrics.csv \
+    --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/binary_aigc/fl_metrics.csv \
     --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/fixed_price/fl_metrics.csv \
     --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/data_size_proportional/fl_metrics.csv \
+    --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/quality_gap_proportional/fl_metrics.csv \
     --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/proposed_active_set/fl_metrics.csv \
     --baseline-csv outputs/cifar100_alpha_sweep/alpha_${tag}/baselines/baseline_clients.csv \
     --baseline-json outputs/cifar100_alpha_sweep/alpha_${tag}/baselines/baseline_summary.json \
@@ -750,7 +774,7 @@ from pathlib import Path
 import pandas as pd
 
 for dataset in ["fmnist", "cifar10", "cifar100"]:
-    for method in ["no_aigc", "random_incentive", "fixed_price", "data_size_proportional", "proposed_active_set"]:
+    for method in ["no_aigc", "random_incentive", "binary_aigc", "fixed_price", "data_size_proportional", "quality_gap_proportional", "proposed_active_set"]:
         for tag, alpha in [("0p05", "0.05"), ("0p1", "0.1"), ("0p3", "0.3"), ("0p5", "0.5")]:
             src = Path(f"outputs/{dataset}_alpha_sweep/alpha_{tag}/fl/{method}/fl_metrics.csv")
             if not src.exists():

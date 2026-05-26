@@ -12,13 +12,17 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 METHOD_LABELS = {
     "no_aigc": "No AIGC",
     "random_incentive": "Random",
+    "binary_aigc": "Binary AIGC",
     "fixed_price": "Fixed Price",
     "data_size_proportional": "Data Size",
+    "quality_gap_proportional": "Quality Gap",
     "proposed_active_set": "Proposed",
     "NoAIGC": "No AIGC",
     "RandomIncentive": "Random",
+    "BinaryAIGC": "Binary AIGC",
     "FixedPrice": "Fixed Price",
     "DataSizeProportional": "Data Size",
+    "QualityGapProportional": "Quality Gap",
     "ProposedActiveSet": "Proposed",
 }
 
