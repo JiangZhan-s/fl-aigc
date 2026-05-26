@@ -521,7 +521,7 @@ base_path = Path("configs/fmnist.yaml")
 out_dir = Path("outputs/config_sweeps/fmnist")
 out_dir.mkdir(parents=True, exist_ok=True)
 
-for alpha in [0.05, 0.1, 0.3, 0.5]:
+for alpha in [0.01, 0.1, 0.3, 0.5]:
     cfg = yaml.safe_load(base_path.read_text())
     cfg.setdefault("dataset", {})["dirichlet_alpha"] = alpha
     tag = str(alpha).replace(".", "p")
@@ -540,7 +540,7 @@ base_path = Path("configs/cifar10.yaml")
 out_dir = Path("outputs/config_sweeps/cifar10")
 out_dir.mkdir(parents=True, exist_ok=True)
 
-for alpha in [0.01, 0.05, 0.5]:
+for alpha in [0.01, 0.05, 0.1, 0.5]:
     cfg = yaml.safe_load(base_path.read_text())
     cfg.setdefault("dataset", {})["dirichlet_alpha"] = alpha
     tag = str(alpha).replace(".", "p")
@@ -559,7 +559,7 @@ base_path = Path("configs/cifar100.yaml")
 out_dir = Path("outputs/config_sweeps/cifar100")
 out_dir.mkdir(parents=True, exist_ok=True)
 
-for alpha in [0.05, 0.1, 0.3, 0.5]:
+for alpha in [0.01, 0.05, 0.1, 0.3, 0.5]:
     cfg = yaml.safe_load(base_path.read_text())
     cfg.setdefault("dataset", {})["dirichlet_alpha"] = alpha
     tag = str(alpha).replace(".", "p")
@@ -650,7 +650,7 @@ proposed_active_set
 FMNIST：
 
 ```bash
-for tag in 0p05 0p1 0p3 0p5; do
+for tag in 0p01 0p05 0p1 0p3 0p5; do
   for method in no_aigc random_incentive binary_aigc fixed_price data_size_proportional quality_gap_proportional proposed_active_set; do
     python -m src.experiments.run_fl \
       --config outputs/config_sweeps/fmnist/alpha_${tag}.yaml \
@@ -666,7 +666,7 @@ done
 CIFAR10：
 
 ```bash
-for tag in 0p05 0p1 0p3 0p5; do
+for tag in 0p01 0p05 0p5; do
   for method in no_aigc random_incentive binary_aigc fixed_price data_size_proportional quality_gap_proportional proposed_active_set; do
     python -m src.experiments.run_fl \
       --config outputs/config_sweeps/cifar10/alpha_${tag}.yaml \
@@ -680,6 +680,14 @@ done
 ```
 
 CIFAR100：
+
+先确认已经生成对应临时配置：
+
+```bash
+find outputs/config_sweeps/cifar100 -maxdepth 1 -name "alpha_*.yaml" | sort
+```
+
+如果没有配置文件，先运行 11.1 中的 CIFAR100 配置生成命令。
 
 ```bash
 for tag in 0p05 0p1 0p3 0p5; do
@@ -702,7 +710,7 @@ done
 FMNIST：
 
 ```bash
-for tag in 0p05 0p1 0p3 0p5; do
+for tag in 0p01 0p05 0p1 0p3 0p5; do
   python scripts/plot_results.py \
     --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/no_aigc/fl_metrics.csv \
     --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/random_incentive/fl_metrics.csv \
@@ -720,7 +728,7 @@ done
 CIFAR10：
 
 ```bash
-for tag in 0p05 0p1 0p3 0p5; do
+for tag in 0p01 0p05 0p5; do
   python scripts/plot_results.py \
     --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/no_aigc/fl_metrics.csv \
     --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/random_incentive/fl_metrics.csv \
@@ -736,6 +744,8 @@ done
 ```
 
 CIFAR100：
+
+同样需要先确认 `outputs/config_sweeps/cifar100/alpha_${tag}.yaml` 已存在。
 
 ```bash
 for tag in 0p05 0p1 0p3 0p5; do
