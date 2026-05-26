@@ -6,6 +6,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import pandas as pd
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 
 
 METHOD_LABELS = {
@@ -82,10 +83,10 @@ def _read_json(path):
 
 
 def _save(fig, output_dir: Path, name: str):
+    """Save a figure as PNG and PDF."""
     output_dir.mkdir(parents=True, exist_ok=True)
-    fig.tight_layout()
-    fig.savefig(output_dir / f"{name}.png")
-    fig.savefig(output_dir / f"{name}.pdf")
+    fig.savefig(output_dir / f"{name}.png", bbox_inches="tight")
+    fig.savefig(output_dir / f"{name}.pdf", bbox_inches="tight")
     plt.close(fig)
 
 
@@ -94,26 +95,81 @@ def _as_list(values):
 
 
 def plot_accuracy_vs_rounds(fl_frames, output_dir: Path):
+    """Plot test accuracy and add a zoomed inset for the late-round region."""
     frames = [df for df in fl_frames if df is not None and {"round", "test_accuracy"}.issubset(df.columns)]
     if not frames:
         return False
 
     fig, ax = plt.subplots(figsize=(6.4, 4.0))
+    plotted = []
     for idx, df in enumerate(frames):
+        part = df[["round", "test_accuracy"] + (["method"] if "method" in df.columns else [])].dropna(
+            subset=["test_accuracy"]
+        )
+        if part.empty:
+            continue
         label = df["method"].iloc[0] if "method" in df.columns else f"run_{idx + 1}"
-        ax.plot(
-            df["round"],
-            df["test_accuracy"],
+        line = ax.plot(
+            part["round"],
+            part["test_accuracy"],
             marker=MARKERS[idx % len(MARKERS)],
-            markevery=_markevery(len(df)),
+            markevery=_markevery(len(part)),
             linewidth=1.15,
             markersize=3.0,
             alpha=0.95,
             label=_label(label),
-        )
+        )[0]
+        plotted.append((part, line, _label(label)))
+
+    if not plotted:
+        plt.close(fig)
+        return False
+
     ax.set_title("Accuracy vs Communication Rounds")
     ax.set_xlabel("Communication round")
     ax.set_ylabel("Test accuracy")
+
+    all_rounds = pd.concat([part["round"] for part, _, _ in plotted], ignore_index=True)
+    if len(all_rounds) >= 20:
+        round_min = float(all_rounds.min())
+        round_max = float(all_rounds.max())
+        zoom_start = round_min + 0.85 * (round_max - round_min)
+        zoom_values = []
+
+        axins = inset_axes(ax, width="48%", height="46%", loc="lower left", borderpad=1.15)
+        for part, line, _ in plotted:
+            zoom_part = part[part["round"] >= zoom_start]
+            if zoom_part.empty:
+                continue
+            axins.plot(
+                zoom_part["round"],
+                zoom_part["test_accuracy"],
+                color=line.get_color(),
+                linestyle=line.get_linestyle(),
+                marker=line.get_marker(),
+                markevery=_markevery(len(zoom_part)),
+                linewidth=1.0,
+                markersize=2.4,
+                alpha=0.95,
+            )
+            zoom_values.extend(zoom_part["test_accuracy"].tolist())
+
+        if zoom_values:
+            y_min = min(zoom_values)
+            y_max = max(zoom_values)
+            y_pad = max((y_max - y_min) * 0.06, 0.0008)
+            axins.set_xlim(zoom_start, round_max)
+            axins.set_ylim(y_min - y_pad, y_max + y_pad)
+            axins.tick_params(axis="both", labelsize=7)
+            axins.grid(True, color="#d9d9d9", linewidth=0.45, alpha=0.65)
+            axins.set_title("Late-round zoom", fontsize=8, pad=2)
+            for spine in axins.spines.values():
+                spine.set_linewidth(0.8)
+                spine.set_edgecolor("#555555")
+            mark_inset(ax, axins, loc1=1, loc2=3, fc="none", ec="#555555", linewidth=0.8, alpha=0.95)
+        else:
+            axins.remove()
+
     _finish_axes(ax)
     ax.legend(frameon=False, ncol=2)
     _save(fig, output_dir, "accuracy_vs_rounds")
@@ -262,45 +318,23 @@ def plot_budget_utilization(summary_frames, output_dir: Path):
     return True
 
 
-def plot_social_welfare(client_frames, summary_frames, output_dir: Path):
-    """Plot social welfare as server utility plus total client utility."""
-    summaries = _concat_frames(summary_frames)
-    if summaries.empty or not {"method", "server_utility"}.issubset(summaries.columns):
+def plot_server_utility_comparison(summary_frames, output_dir: Path):
+    """Plot server utility by method."""
+    data = _concat_frames(summary_frames)
+    if data.empty or not {"method", "server_utility"}.issubset(data.columns):
         return False
 
-    client_parts = []
-    for df in client_frames:
-        if df is None or df.empty or "utility" not in df.columns:
-            continue
-        part = df.copy()
-        if "baseline" in part.columns:
-            grouped = part.groupby("baseline", as_index=False)["utility"].sum()
-            grouped = grouped.rename(columns={"baseline": "method", "utility": "client_utility_sum"})
-        else:
-            grouped = pd.DataFrame(
-                [{"method": "mechanism", "client_utility_sum": float(part["utility"].sum())}]
-            )
-        client_parts.append(grouped)
-
-    client_utilities = _concat_frames(client_parts)
-    if client_utilities.empty:
-        return False
-
-    data = summaries.merge(client_utilities, on="method", how="inner")
-    if data.empty:
-        return False
-
-    data["social_welfare"] = data["server_utility"] + data["client_utility_sum"]
-    data = data.sort_values("social_welfare", ascending=False)
+    data = data.sort_values("server_utility", ascending=False)
 
     fig, ax = plt.subplots(figsize=(7.0, 4.0))
-    ax.bar([_label(value) for value in data["method"]], data["social_welfare"], alpha=0.85)
-    ax.set_title("Social Welfare by Method")
+    ax.bar([_label(value) for value in data["method"]], data["server_utility"], alpha=0.85)
+    ax.axhline(0.0, color="#666666", linewidth=0.8)
+    ax.set_title("Server Utility by Method")
     ax.set_xlabel("Method")
-    ax.set_ylabel("Server utility + client utility")
+    ax.set_ylabel("Server utility")
     ax.tick_params(axis="x", rotation=20)
     _finish_axes(ax)
-    _save(fig, output_dir, "social_welfare_comparison")
+    _save(fig, output_dir, "server_utility_comparison")
     return True
 
 
@@ -449,7 +483,7 @@ def main():
         "optimality_gap_n_le_12": plot_optimality_gap(sweep_df, summary_frames, args.output_dir),
         "lambda_before_after": plot_lambda_before_after(fl_frames, args.output_dir),
         "budget_utilization": plot_budget_utilization(summary_frames, args.output_dir),
-        "social_welfare_comparison": plot_social_welfare(client_frames, summary_frames, args.output_dir),
+        "server_utility_comparison": plot_server_utility_comparison(summary_frames, args.output_dir),
     }
 
     for name, did_plot in plotted.items():

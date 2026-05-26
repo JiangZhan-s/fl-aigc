@@ -18,6 +18,7 @@ mechanism:
   beta_range: [0.01, 0.1]
   S_range: [0.01, 0.1]
   value_range: [0.5, 1.5]
+  value_scale: 1.0
   budget_ratio: 0.3
   exact_max_clients: 12
   active_set_max_iter: 30

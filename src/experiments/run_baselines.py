@@ -389,9 +389,12 @@ def main():
     parser = argparse.ArgumentParser(description="Run mechanism baselines")
     parser.add_argument("--config", type=Path, default=Path("configs/default.yaml"))
     parser.add_argument("--output-dir", type=Path, default=None)
+    parser.add_argument("--budget-ratio", type=float, default=None)
     args = parser.parse_args()
 
     config = load_config(args.config)
+    if args.budget_ratio is not None:
+        config.setdefault("mechanism", {})["budget_ratio"] = args.budget_ratio
     output_dir = args.output_dir or Path(config.get("output", {}).get("dir", "./outputs")) / "baselines"
     summaries = run_baselines_experiment(config, output_dir)
     print(json.dumps(summaries, indent=2))

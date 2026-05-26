@@ -85,13 +85,14 @@ def build_mechanism_params(labels, client_indices, config):
     d = np.asarray([len(indices) for indices in client_indices], dtype=np.float64)
     d = d / max(float(np.sum(d)), 1.0)
 
+    value_scale = float(mechanism_cfg.get("value_scale", 1.0))
     params = MechanismParams(
         d=d,
         lambda_k=lambda_values,
         S=_sample_uniform(rng, service_cost_range_from_config(mechanism_cfg), len(d)),
         alpha=_sample_uniform(rng, mechanism_cfg.get("alpha_range", [0.01, 0.1]), len(d)),
         beta=_sample_uniform(rng, mechanism_cfg.get("beta_range", [0.01, 0.1]), len(d)),
-        V=d.copy(),
+        V=value_scale * d.copy(),
         lambda_base=float(mechanism_cfg.get("lambda_base", 1.0)),
     )
     params.validate()

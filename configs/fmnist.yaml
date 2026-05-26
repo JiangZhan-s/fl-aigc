@@ -18,6 +18,7 @@ mechanism:
   alpha_range: [0.01, 0.1]
   beta_range: [0.01, 0.1]
   S_range: [0.01, 0.1]
+  value_scale: 20
   budget_ratio: 0.3
   max_clients_for_exact: 12
   exact_max_clients: 12

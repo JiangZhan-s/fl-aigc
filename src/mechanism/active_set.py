@@ -10,7 +10,7 @@ from typing import List
 
 import numpy as np
 
-from src.mechanism.client_response import best_response_q, client_utility
+from src.mechanism.client_response import best_response_q, client_utility, phi
 from src.mechanism.fixed_mode_solver import FixedModeResult, solve_fixed_mode
 from src.mechanism.params import MechanismParams
 from src.mechanism.payment import cost_upper, cost_zero
@@ -117,6 +117,81 @@ def _remove_lowest_score_client(modes, params: MechanismParams):
     return True
 
 
+def _solve_modes(params: MechanismParams, modes, B: float, tol: float):
+    """Solve a fixed-mode assignment represented by mode labels."""
+    S0, SI, SU, Sout = _partition_from_modes(modes)
+    return solve_fixed_mode(params, S0=S0, SI=SI, SU=SU, Sout=Sout, B=B, tol=tol)
+
+
+def _zero_fallback_modes(params: MechanismParams, B: float, tol: float):
+    """Build the NoAIGC q=0 feasible participation set used as a fallback."""
+    candidates = []
+    for idx in range(len(params.d)):
+        cost, _ = cost_zero(
+            params.d[idx],
+            params.lambda_k[idx],
+            params.S[idx],
+            params.alpha[idx],
+            params.lambda_base,
+            tol,
+        )
+        if not np.isfinite(cost):
+            continue
+
+        value = params.V[idx] * phi(params.lambda_k[idx], 0.0, params.lambda_base)
+        candidates.append((value / max(cost, tol), value, idx, cost))
+
+    modes = ["exit"] * len(params.d)
+    spent = 0.0
+    for _, _, idx, cost in sorted(candidates, reverse=True):
+        if spent + cost <= B + tol:
+            modes[idx] = "zero"
+            spent += cost
+
+    return modes
+
+
+def _local_mode_improvement(
+    params: MechanismParams,
+    modes,
+    current_result: FixedModeResult,
+    B: float,
+    tol: float,
+):
+    """Greedily accept single-client mode switches that improve server utility."""
+    candidate_modes = ("exit", "zero", "internal", "upper")
+    best_modes = list(modes)
+    best_result = current_result
+    improved = True
+
+    while improved:
+        improved = False
+        round_best_modes = best_modes
+        round_best_result = best_result
+
+        for idx, current_mode in enumerate(best_modes):
+            for candidate_mode in candidate_modes:
+                if candidate_mode == current_mode:
+                    continue
+
+                trial_modes = list(best_modes)
+                trial_modes[idx] = candidate_mode
+                trial_result = _solve_modes(params, trial_modes, B, tol)
+                if not trial_result.feasible:
+                    continue
+
+                if trial_result.server_utility > round_best_result.server_utility + tol:
+                    round_best_modes = trial_modes
+                    round_best_result = trial_result
+
+        if round_best_result.server_utility > best_result.server_utility + tol:
+            best_modes = round_best_modes
+            best_result = round_best_result
+            improved = True
+
+    return best_modes, best_result
+
+
 def _diagnostics(params: MechanismParams, result: FixedModeResult, tol: float):
     d = np.asarray(params.d, dtype=np.float64)
     lambda_k = np.asarray(params.lambda_k, dtype=np.float64)
@@ -183,10 +258,19 @@ def solve_active_set(
     modes = _initial_modes(params, B, tol)
     num_clients = len(np.asarray(params.d))
     last_result = None
+    fallback_modes = _zero_fallback_modes(params, B, tol)
+    best_result = _solve_modes(params, fallback_modes, B, tol)
+    if best_result.feasible:
+        logs.append(
+            f"NoAIGC fallback: cost={best_result.total_cost:.6f}, "
+            f"utility={best_result.server_utility:.6f}"
+        )
+    else:
+        exit_modes = ["exit"] * num_clients
+        best_result = _solve_modes(params, exit_modes, B, tol)
 
     for iteration in range(1, max_iter + 1):
-        S0, SI, SU, Sout = _partition_from_modes(modes)
-        result = solve_fixed_mode(params, S0=S0, SI=SI, SU=SU, Sout=Sout, B=B, tol=tol)
+        result = _solve_modes(params, modes, B, tol)
 
         if not result.feasible:
             logs.append(f"iteration {iteration}: infeasible mode, moving lowest-score client to exit")
@@ -197,6 +281,9 @@ def solve_active_set(
             continue
 
         last_result = result
+        if result.server_utility > best_result.server_utility + tol:
+            best_result = result
+
         new_modes = list(result.mode)
         for idx, mode in enumerate(result.mode):
             if mode == "internal":
@@ -204,6 +291,11 @@ def solve_active_set(
                     new_modes[idx] = "zero"
                 elif result.q[idx] >= params.lambda_k[idx] - tol:
                     new_modes[idx] = "upper"
+
+        new_modes, result = _local_mode_improvement(params, new_modes, result, B, tol)
+        last_result = result
+        if result.server_utility > best_result.server_utility + tol:
+            best_result = result
 
         ir_violations, max_ic_regret = _diagnostics(params, result, tol)
         logs.append(
@@ -213,6 +305,10 @@ def solve_active_set(
         )
 
         if new_modes == modes:
+            if best_result.server_utility > result.server_utility + tol:
+                result = best_result
+                ir_violations, max_ic_regret = _diagnostics(params, result, tol)
+                logs.append("returned NoAIGC fallback because it has higher server utility")
             return ActiveSetResult(
                 result=result,
                 iterations=iteration,
@@ -223,9 +319,10 @@ def solve_active_set(
         modes = new_modes
 
     if last_result is None or not last_result.feasible:
-        exit_modes = ["exit"] * num_clients
-        S0, SI, SU, Sout = _partition_from_modes(exit_modes)
-        last_result = solve_fixed_mode(params, S0=S0, SI=SI, SU=SU, Sout=Sout, B=B, tol=tol)
+        last_result = best_result
+    elif best_result.server_utility > last_result.server_utility + tol:
+        last_result = best_result
+        logs.append("returned NoAIGC fallback because it has higher server utility")
 
     ir_violations, max_ic_regret = _diagnostics(params, last_result, tol)
     return ActiveSetResult(

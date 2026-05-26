@@ -264,7 +264,7 @@ runtime_vs_n
 optimality_gap_n_le_12
 lambda_before_after
 budget_utilization
-social_welfare_comparison
+server_utility_comparison
 ```
 
 ## Dataset Notes

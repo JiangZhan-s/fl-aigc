@@ -1,0 +1,92 @@
+{
+  "meta": {
+    "budget": 0.20851410127073766,
+    "budget_ratio": 0.1,
+    "num_clients": 20
+  },
+  "NoAIGC": {
+    "baseline": "NoAIGC",
+    "server_utility": 0.487535746105926,
+    "budget_used": 0.06288092056074057,
+    "budget_utilization": 0.30156675341153594,
+    "participation_rate": 1.0,
+    "avg_q": 0.0,
+    "corr_lambda_q": 0.0,
+    "runtime": 7.996799999432369e-05,
+    "ir_violations": 0,
+    "ic_regret_max": 0.0,
+    "ic_regret_mean": 0.0
+  },
+  "RandomIncentive": {
+    "baseline": "RandomIncentive",
+    "server_utility": -0.11500327191850362,
+    "budget_used": 0.18929287070621434,
+    "budget_utilization": 0.9078180782624087,
+    "participation_rate": 0.15,
+    "avg_q": 0.24734870326032365,
+    "corr_lambda_q": 0.21992400955189262,
+    "runtime": 0.00016554600000517894,
+    "ir_violations": 0,
+    "ic_regret_max": 6.938893903907228e-18,
+    "ic_regret_mean": 2.3129646346357427e-18
+  },
+  "FixedPrice": {
+    "baseline": "FixedPrice",
+    "server_utility": 0.3602082379881838,
+    "budget_used": 0.20851410127073766,
+    "budget_utilization": 1.0,
+    "participation_rate": 1.0,
+    "avg_q": 0.010242418417605875,
+    "corr_lambda_q": 0.015335035274113567,
+    "runtime": 0.00755129899999929,
+    "ir_violations": 0,
+    "ic_regret_max": 0.0,
+    "ic_regret_mean": 0.0,
+    "price": 0.366636031112201
+  },
+  "DataSizeProportional": {
+    "baseline": "DataSizeProportional",
+    "server_utility": 0.4617248199904007,
+    "budget_used": 0.10313327110153069,
+    "budget_utilization": 0.4946105346017869,
+    "participation_rate": 1.0,
+    "avg_q": 0.008129277152520936,
+    "corr_lambda_q": 0.041472881964191015,
+    "runtime": 0.002443872999990049,
+    "ir_violations": 0,
+    "ic_regret_max": 8.857904161720904e-11,
+    "ic_regret_mean": 4.639689179561666e-11
+  },
+  "ProposedActiveSet": {
+    "baseline": "ProposedActiveSet",
+    "server_utility": 0.487535746105926,
+    "budget_used": 0.06288092056074056,
+    "budget_utilization": 0.3015667534115358,
+    "participation_rate": 1.0,
+    "avg_q": 0.0,
+    "corr_lambda_q": 0.0,
+    "runtime": 0.06870474699999818,
+    "ir_violations": 0,
+    "ic_regret_max": 0.0,
+    "ic_regret_mean": 0.0,
+    "iterations": 13,
+    "logs": [
+      "active-set is a heuristic that returns a feasible mode-stable solution",
+      "the final fixed-mode continuous subproblem is solved by the KKT solver",
+      "NoAIGC fallback: cost=0.062881, utility=0.487536",
+      "iteration 1: infeasible mode, moving lowest-score client to exit",
+      "iteration 2: infeasible mode, moving lowest-score client to exit",
+      "iteration 3: infeasible mode, moving lowest-score client to exit",
+      "iteration 4: infeasible mode, moving lowest-score client to exit",
+      "iteration 5: infeasible mode, moving lowest-score client to exit",
+      "iteration 6: infeasible mode, moving lowest-score client to exit",
+      "iteration 7: infeasible mode, moving lowest-score client to exit",
+      "iteration 8: infeasible mode, moving lowest-score client to exit",
+      "iteration 9: infeasible mode, moving lowest-score client to exit",
+      "iteration 10: infeasible mode, moving lowest-score client to exit",
+      "iteration 11: infeasible mode, moving lowest-score client to exit",
+      "iteration 12: feasible, cost=0.062881, utility=0.487536, ir_violations=0, max_ic_regret=0.000e+00",
+      "iteration 13: feasible, cost=0.062881, utility=0.487536, ir_violations=0, max_ic_regret=0.000e+00"
+    ]
+  }
+}
