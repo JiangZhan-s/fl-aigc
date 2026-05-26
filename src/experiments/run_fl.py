@@ -23,6 +23,7 @@ from src.experiments.run_mechanism import build_mechanism_params, compute_budget
 from src.experiments.run_mechanism import budget_ratio_from_config, dataset_config, dataset_name_from_config
 from src.fl.models import SmallCNNCIFAR, build_model, resnet18_cifar
 from src.fl.server import run_fedavg
+from src.mechanism.client_response import best_response_q, client_utility
 from src.utils.device import get_device
 from src.utils.seed import set_seed
 
@@ -70,6 +71,123 @@ def _build_model(dataset_name: str, model_name: str, num_classes: int):
     raise ValueError(f"Unsupported model: {model_name}")
 
 
+def _corr_lambda_q(lambda_values, q_values):
+    """Return corr(lambda, q), or nan when either side is constant."""
+    lambda_array = np.asarray(lambda_values, dtype=np.float64)
+    q_array = np.asarray(q_values, dtype=np.float64)
+    if len(lambda_array) < 2 or np.std(lambda_array) == 0 or np.std(q_array) == 0:
+        return float("nan")
+    return float(np.corrcoef(lambda_array, q_array)[0, 1])
+
+
+def _mode_counts(modes):
+    """Return a compact mode-count dictionary."""
+    return {mode: int(modes.count(mode)) for mode in sorted(set(modes))}
+
+
+def validate_mechanism_result(params, result, B, tol: float = 1e-6):
+    """Print mechanism sanity warnings without interrupting FL."""
+    q = np.asarray(result.q, dtype=np.float64)
+    p = np.asarray(result.p, dtype=np.float64)
+    lambda_k = np.asarray(params.lambda_k, dtype=np.float64)
+    warnings = []
+    max_response_error = 0.0
+    max_ic_regret = 0.0
+
+    if np.any(q < -tol) or np.any(q > lambda_k + tol):
+        warnings.append("q is outside [0, lambda_k]")
+    if np.any(p < -tol):
+        warnings.append("p contains negative values")
+    if result.total_cost > B + tol:
+        warnings.append(f"total_cost exceeds budget: {result.total_cost:.6f} > {B:.6f}")
+
+    for idx, mode in enumerate(result.mode):
+        if mode == "exit":
+            continue
+
+        utility = client_utility(
+            q[idx],
+            p[idx],
+            params.d[idx],
+            params.lambda_k[idx],
+            params.S[idx],
+            params.alpha[idx],
+            params.beta[idx],
+            params.lambda_base,
+        )
+        if utility < -tol:
+            warnings.append(f"client {idx} violates IR: utility={utility:.6e}")
+
+        br_q = best_response_q(
+            p[idx],
+            params.d[idx],
+            params.lambda_k[idx],
+            params.alpha[idx],
+            params.beta[idx],
+            params.lambda_base,
+        )
+        response_error = abs(float(br_q) - q[idx])
+        max_response_error = max(max_response_error, response_error)
+        br_utility = client_utility(
+            br_q,
+            p[idx],
+            params.d[idx],
+            params.lambda_k[idx],
+            params.S[idx],
+            params.alpha[idx],
+            params.beta[idx],
+            params.lambda_base,
+        )
+        max_ic_regret = max(max_ic_regret, max(float(br_utility - utility), 0.0))
+
+    if max_response_error > tol:
+        warnings.append(f"max_response_error={max_response_error:.6e}")
+    if max_ic_regret > tol:
+        warnings.append(f"max_ic_regret={max_ic_regret:.6e}")
+
+    if warnings:
+        print("[mechanism warning] " + " | ".join(warnings))
+
+    return {
+        "max_response_error": max_response_error,
+        "max_ic_regret": max_ic_regret,
+        "warnings": warnings,
+    }
+
+
+def _print_mechanism_debug(method, B, result, lambda_before, avg_lambda_before):
+    """Print pre-augmentation mechanism diagnostics."""
+    q = np.asarray(result.q, dtype=np.float64)
+    lambda_array = np.asarray(lambda_before, dtype=np.float64)
+    participation_rate = float(np.mean(result.x > 0))
+    print("[mechanism debug] before AIGC-proxy")
+    print(f"  method: {method}")
+    print(f"  B: {B:.6f}")
+    print(f"  budget_used/total_cost: {result.total_cost:.6f}")
+    print(f"  participation_rate: {participation_rate:.6f}")
+    print(f"  q_min/q_mean/q_max: {q.min():.6f} / {q.mean():.6f} / {q.max():.6f}")
+    print(
+        "  lambda_min/lambda_mean/lambda_max: "
+        f"{lambda_array.min():.6f} / {lambda_array.mean():.6f} / {lambda_array.max():.6f}"
+    )
+    print(f"  corr(lambda_k, q): {_corr_lambda_q(lambda_array, q)}")
+    print(f"  mode_counts: {_mode_counts(result.mode)}")
+    print(f"  avg_lambda_before: {avg_lambda_before:.6f}")
+
+
+def _print_augmentation_debug(augmentation, avg_lambda_before, avg_lambda_after):
+    """Print post-augmentation mechanism diagnostics."""
+    sizes = np.asarray([len(indices) for indices in augmentation.client_indices_aug], dtype=np.float64)
+    print("[mechanism debug] after AIGC-proxy")
+    print(f"  avg_lambda_after: {avg_lambda_after:.6f}")
+    print(f"  lambda_reduction: {avg_lambda_before - avg_lambda_after:.6f}")
+    print(f"  total_augmented_samples: {int(np.sum(augmentation.added_counts))}")
+    print(
+        "  augmented_size_min/mean/max: "
+        f"{sizes.min():.0f} / {sizes.mean():.2f} / {sizes.max():.0f}"
+    )
+
+
 def _run_method(params, budget, method: str, seed: int, config=None):
     """Run one mechanism or baseline method and return its output."""
     normalized = method.lower()
@@ -97,7 +215,12 @@ def load_config(path):
         return yaml.safe_load(handle)
 
 
-def run_end_to_end(config, method: str = "proposed_active_set", output_dir: Path = None):
+def run_end_to_end(
+    config,
+    method: str = "proposed_active_set",
+    output_dir: Path = None,
+    debug_mechanism: bool = False,
+):
     """Run mechanism/baseline selection, AIGC-proxy augmentation, and FedAvg."""
     seed = int(config.get("seed", 0))
     set_seed(seed)
@@ -128,8 +251,13 @@ def run_end_to_end(config, method: str = "proposed_active_set", output_dir: Path
     params = build_mechanism_params(labels, client_indices, config)
     budget = compute_budget(params, budget_ratio_from_config(config))
     mechanism_output = _run_method(params, budget, method, seed, config)
+    validate_mechanism_result(params, mechanism_output.result, budget)
 
     global_dist = global_label_distribution(labels, num_classes)
+    avg_lambda_before = float(np.mean(lambda_before))
+    if debug_mechanism:
+        _print_mechanism_debug(method, budget, mechanism_output.result, lambda_before, avg_lambda_before)
+
     augmentation = aigc_proxy_augment(
         dataset=train_dataset,
         client_indices=client_indices,
@@ -140,6 +268,10 @@ def run_end_to_end(config, method: str = "proposed_active_set", output_dir: Path
         global_dist=global_dist,
         seed=seed,
     )
+    avg_lambda_after = float(np.mean(augmentation.augmented_lambdas))
+
+    if debug_mechanism:
+        _print_augmentation_debug(augmentation, avg_lambda_before, avg_lambda_after)
 
     model = _build_model(dataset_name, fl_cfg.get("model", "smallcnn"), num_classes)
     history = run_fedavg(
@@ -160,8 +292,6 @@ def run_end_to_end(config, method: str = "proposed_active_set", output_dir: Path
         seed=seed,
     )
 
-    avg_lambda_before = float(np.mean(lambda_before))
-    avg_lambda_after = float(np.mean(augmentation.augmented_lambdas))
     participation_rate = float(np.mean(mechanism_output.result.x > 0))
     rows = [
         {
@@ -203,6 +333,7 @@ def main():
     parser.add_argument("--clients", type=int, default=5)
     parser.add_argument("--subset-size", type=int, default=2000)
     parser.add_argument("--model", default=None, choices=["smallcnn", "resnet18_cifar", "smallcnn_cifar"])
+    parser.add_argument("--debug-mechanism", action="store_true")
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -213,7 +344,12 @@ def main():
         config.setdefault("fl", {})["model"] = args.model
 
     output_dir = args.output_dir or Path(config.get("output", {}).get("dir", "./outputs"))
-    df = run_end_to_end(config, method=args.method, output_dir=output_dir)
+    df = run_end_to_end(
+        config,
+        method=args.method,
+        output_dir=output_dir,
+        debug_mechanism=args.debug_mechanism,
+    )
     print(df.to_string(index=False))
 
 

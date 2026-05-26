@@ -480,7 +480,353 @@ print(pd.read_csv("outputs/fmnist/fl/proposed_active_set/fl_metrics.csv").head()
 PY
 ```
 
-### 11. 论文中常用表格字段
+### 11. Dirichlet alpha 消融实验
+
+该实验用于展示 Non-IID 强度变化对机制和 FL 性能的影响。`dirichlet_alpha` 越小，客户端标签分布越偏；推荐至少跑：
+
+```text
+0.05, 0.1, 0.3, 0.5
+```
+
+下面命令不会修改原始 `configs/*.yaml`，而是在 `outputs/config_sweeps/` 下生成临时配置。
+
+注意：`0.01` 是极强 Non-IID。若同时使用 `N=50` 和 `min_size=10`，Dirichlet 重采样可能失败。默认命令使用更稳定的 `0.05`；如果必须跑 `0.01`，建议在临时配置中把 `dataset.min_size` 调低到 `1` 或 `2`。
+
+#### 11.1 生成不同 alpha 的临时配置
+
+FMNIST：
+
+```bash
+python - <<'PY'
+from pathlib import Path
+import yaml
+
+base_path = Path("configs/fmnist.yaml")
+out_dir = Path("outputs/config_sweeps/fmnist")
+out_dir.mkdir(parents=True, exist_ok=True)
+
+for alpha in [0.05, 0.1, 0.3, 0.5]:
+    cfg = yaml.safe_load(base_path.read_text())
+    cfg.setdefault("dataset", {})["dirichlet_alpha"] = alpha
+    tag = str(alpha).replace(".", "p")
+    (out_dir / f"alpha_{tag}.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False))
+PY
+```
+
+CIFAR10：
+
+```bash
+python - <<'PY'
+from pathlib import Path
+import yaml
+
+base_path = Path("configs/cifar10.yaml")
+out_dir = Path("outputs/config_sweeps/cifar10")
+out_dir.mkdir(parents=True, exist_ok=True)
+
+for alpha in [0.01, 0.05, 0.5]:
+    cfg = yaml.safe_load(base_path.read_text())
+    cfg.setdefault("dataset", {})["dirichlet_alpha"] = alpha
+    tag = str(alpha).replace(".", "p")
+    (out_dir / f"alpha_{tag}.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False))
+PY
+```
+
+CIFAR100：
+
+```bash
+python - <<'PY'
+from pathlib import Path
+import yaml
+
+base_path = Path("configs/cifar100.yaml")
+out_dir = Path("outputs/config_sweeps/cifar100")
+out_dir.mkdir(parents=True, exist_ok=True)
+
+for alpha in [0.05, 0.1, 0.3, 0.5]:
+    cfg = yaml.safe_load(base_path.read_text())
+    cfg.setdefault("dataset", {})["dirichlet_alpha"] = alpha
+    tag = str(alpha).replace(".", "p")
+    (out_dir / f"alpha_{tag}.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False))
+PY
+```
+
+#### 11.2 机制层 alpha sweep
+
+这组命令只跑机制和 baseline，不跑 FL，速度较快。适合生成 `server utility`、`budget utilization`、`avg_q`、`lambda-q` 等消融图和表格。
+
+FMNIST：
+
+```bash
+for tag in 0p05 0p1 0p3 0p5; do
+  python -m src.experiments.run_baselines \
+    --config outputs/config_sweeps/fmnist/alpha_${tag}.yaml \
+    --output-dir outputs/fmnist_alpha_sweep/alpha_${tag}/baselines
+done
+```
+
+CIFAR10：
+
+```bash
+for tag in 0p05 0p1 0p3 0p5; do
+  python -m src.experiments.run_baselines \
+    --config outputs/config_sweeps/cifar10/alpha_${tag}.yaml \
+    --output-dir outputs/cifar10_alpha_sweep/alpha_${tag}/baselines
+done
+```
+
+CIFAR100：
+
+```bash
+for tag in 0p05 0p1 0p3 0p5; do
+  python -m src.experiments.run_baselines \
+    --config outputs/config_sweeps/cifar100/alpha_${tag}.yaml \
+    --output-dir outputs/cifar100_alpha_sweep/alpha_${tag}/baselines
+done
+```
+
+绘制机制层 alpha sweep 图：
+
+```bash
+python scripts/plot_results.py \
+  --baseline-json outputs/fmnist_alpha_sweep/alpha_0p05/baselines/baseline_summary.json \
+  --baseline-json outputs/fmnist_alpha_sweep/alpha_0p1/baselines/baseline_summary.json \
+  --baseline-json outputs/fmnist_alpha_sweep/alpha_0p3/baselines/baseline_summary.json \
+  --baseline-json outputs/fmnist_alpha_sweep/alpha_0p5/baselines/baseline_summary.json \
+  --baseline-csv outputs/fmnist_alpha_sweep/alpha_0p3/baselines/baseline_clients.csv \
+  --output-dir outputs/fmnist_alpha_sweep/figures
+
+python scripts/plot_results.py \
+  --baseline-json outputs/cifar10_alpha_sweep/alpha_0p05/baselines/baseline_summary.json \
+  --baseline-json outputs/cifar10_alpha_sweep/alpha_0p1/baselines/baseline_summary.json \
+  --baseline-json outputs/cifar10_alpha_sweep/alpha_0p3/baselines/baseline_summary.json \
+  --baseline-json outputs/cifar10_alpha_sweep/alpha_0p5/baselines/baseline_summary.json \
+  --baseline-csv outputs/cifar10_alpha_sweep/alpha_0p3/baselines/baseline_clients.csv \
+  --output-dir outputs/cifar10_alpha_sweep/figures
+
+python scripts/plot_results.py \
+  --baseline-json outputs/cifar100_alpha_sweep/alpha_0p05/baselines/baseline_summary.json \
+  --baseline-json outputs/cifar100_alpha_sweep/alpha_0p1/baselines/baseline_summary.json \
+  --baseline-json outputs/cifar100_alpha_sweep/alpha_0p3/baselines/baseline_summary.json \
+  --baseline-json outputs/cifar100_alpha_sweep/alpha_0p5/baselines/baseline_summary.json \
+  --baseline-csv outputs/cifar100_alpha_sweep/alpha_0p3/baselines/baseline_clients.csv \
+  --output-dir outputs/cifar100_alpha_sweep/figures
+```
+
+注意：当前 `plot_results.py` 的 `server_utility_vs_budget_ratio` 横轴固定是 `budget_ratio`。如果用于 alpha sweep，该图不能直接解释为 alpha 横轴；alpha sweep 的机制结果更建议先用 summary 表格汇总，或后续单独扩展绘图脚本。
+
+#### 11.3 端到端 FL alpha sweep：完整方法对比
+
+这组命令用于展示不同 Non-IID 强度下的完整 FL 方法对比。每个 `dirichlet_alpha` 都跑五个方法：
+
+```text
+no_aigc
+random_incentive
+fixed_price
+data_size_proportional
+proposed_active_set
+```
+
+为了节省时间，可以先跑 CIFAR10；论文主图稳定后再补 FMNIST 和 CIFAR100。
+
+FMNIST：
+
+```bash
+for tag in 0p05 0p1 0p3 0p5; do
+  for method in no_aigc random_incentive fixed_price data_size_proportional proposed_active_set; do
+    python -m src.experiments.run_fl \
+      --config outputs/config_sweeps/fmnist/alpha_${tag}.yaml \
+      --method ${method} \
+      --rounds 100 \
+      --clients 50 \
+      --subset-size 0 \
+      --output-dir outputs/fmnist_alpha_sweep/alpha_${tag}/fl/${method}
+  done
+done
+```
+
+CIFAR10：
+
+```bash
+for tag in 0p05 0p1 0p3 0p5; do
+  for method in no_aigc random_incentive fixed_price data_size_proportional proposed_active_set; do
+    python -m src.experiments.run_fl \
+      --config outputs/config_sweeps/cifar10/alpha_${tag}.yaml \
+      --method ${method} \
+      --rounds 200 \
+      --clients 50 \
+      --subset-size 0 \
+      --output-dir outputs/cifar10_alpha_sweep/alpha_${tag}/fl/${method}
+  done
+done
+```
+
+CIFAR100：
+
+```bash
+for tag in 0p05 0p1 0p3 0p5; do
+  for method in no_aigc random_incentive fixed_price data_size_proportional proposed_active_set; do
+    python -m src.experiments.run_fl \
+      --config outputs/config_sweeps/cifar100/alpha_${tag}.yaml \
+      --method ${method} \
+      --rounds 300 \
+      --clients 50 \
+      --subset-size 0 \
+      --output-dir outputs/cifar100_alpha_sweep/alpha_${tag}/fl/${method}
+  done
+done
+```
+
+#### 11.4 绘制每个 alpha 下的完整 FL 对比图
+
+每个 alpha 生成一张完整方法对比图。该图适合回答：在相同 Non-IID 强度下，Proposed 是否优于 baseline。
+
+FMNIST：
+
+```bash
+for tag in 0p05 0p1 0p3 0p5; do
+  python scripts/plot_results.py \
+    --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/no_aigc/fl_metrics.csv \
+    --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/random_incentive/fl_metrics.csv \
+    --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/fixed_price/fl_metrics.csv \
+    --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/data_size_proportional/fl_metrics.csv \
+    --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/proposed_active_set/fl_metrics.csv \
+    --baseline-csv outputs/fmnist_alpha_sweep/alpha_${tag}/baselines/baseline_clients.csv \
+    --baseline-json outputs/fmnist_alpha_sweep/alpha_${tag}/baselines/baseline_summary.json \
+    --output-dir outputs/fmnist_alpha_sweep/alpha_${tag}/figures_fl_compare
+done
+```
+
+CIFAR10：
+
+```bash
+for tag in 0p05 0p1 0p3 0p5; do
+  python scripts/plot_results.py \
+    --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/no_aigc/fl_metrics.csv \
+    --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/random_incentive/fl_metrics.csv \
+    --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/fixed_price/fl_metrics.csv \
+    --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/data_size_proportional/fl_metrics.csv \
+    --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/proposed_active_set/fl_metrics.csv \
+    --baseline-csv outputs/cifar10_alpha_sweep/alpha_${tag}/baselines/baseline_clients.csv \
+    --baseline-json outputs/cifar10_alpha_sweep/alpha_${tag}/baselines/baseline_summary.json \
+    --output-dir outputs/cifar10_alpha_sweep/alpha_${tag}/figures_fl_compare
+done
+```
+
+CIFAR100：
+
+```bash
+for tag in 0p05 0p1 0p3 0p5; do
+  python scripts/plot_results.py \
+    --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/no_aigc/fl_metrics.csv \
+    --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/random_incentive/fl_metrics.csv \
+    --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/fixed_price/fl_metrics.csv \
+    --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/data_size_proportional/fl_metrics.csv \
+    --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/proposed_active_set/fl_metrics.csv \
+    --baseline-csv outputs/cifar100_alpha_sweep/alpha_${tag}/baselines/baseline_clients.csv \
+    --baseline-json outputs/cifar100_alpha_sweep/alpha_${tag}/baselines/baseline_summary.json \
+    --output-dir outputs/cifar100_alpha_sweep/alpha_${tag}/figures_fl_compare
+done
+```
+
+生成的核心图：
+
+```text
+outputs/<dataset>_alpha_sweep/alpha_<tag>/figures_fl_compare/accuracy_vs_rounds.pdf
+outputs/<dataset>_alpha_sweep/alpha_<tag>/figures_fl_compare/test_loss_vs_rounds.pdf
+outputs/<dataset>_alpha_sweep/alpha_<tag>/figures_fl_compare/train_loss_vs_rounds.pdf
+outputs/<dataset>_alpha_sweep/alpha_<tag>/figures_fl_compare/lambda_before_after.pdf
+outputs/<dataset>_alpha_sweep/alpha_<tag>/figures_fl_compare/server_utility_comparison.pdf
+outputs/<dataset>_alpha_sweep/alpha_<tag>/figures_fl_compare/budget_utilization.pdf
+```
+
+#### 11.5 绘制不同 alpha 下同一方法的精度曲线
+
+先把每个 alpha 的 CSV 复制成带有清晰 `method` 名称的绘图副本：
+
+```bash
+python - <<'PY'
+from pathlib import Path
+import pandas as pd
+
+for dataset in ["fmnist", "cifar10", "cifar100"]:
+    for method in ["no_aigc", "random_incentive", "fixed_price", "data_size_proportional", "proposed_active_set"]:
+        for tag, alpha in [("0p05", "0.05"), ("0p1", "0.1"), ("0p3", "0.3"), ("0p5", "0.5")]:
+            src = Path(f"outputs/{dataset}_alpha_sweep/alpha_{tag}/fl/{method}/fl_metrics.csv")
+            if not src.exists():
+                continue
+            out_dir = Path(f"outputs/{dataset}_alpha_sweep/plot_inputs/{method}")
+            out_dir.mkdir(parents=True, exist_ok=True)
+            df = pd.read_csv(src)
+            df["method"] = f"{method} alpha={alpha}"
+            df.to_csv(out_dir / f"{method}_alpha_{tag}.csv", index=False)
+PY
+```
+
+绘制 ProposedActiveSet 在不同 alpha 下的 FMNIST 精度曲线：
+
+```bash
+python scripts/plot_results.py \
+  --fl-csv outputs/fmnist_alpha_sweep/plot_inputs/proposed_active_set/proposed_active_set_alpha_0p05.csv \
+  --fl-csv outputs/fmnist_alpha_sweep/plot_inputs/proposed_active_set/proposed_active_set_alpha_0p1.csv \
+  --fl-csv outputs/fmnist_alpha_sweep/plot_inputs/proposed_active_set/proposed_active_set_alpha_0p3.csv \
+  --fl-csv outputs/fmnist_alpha_sweep/plot_inputs/proposed_active_set/proposed_active_set_alpha_0p5.csv \
+  --output-dir outputs/fmnist_alpha_sweep/figures_proposed_by_alpha
+```
+
+绘制 ProposedActiveSet 在不同 alpha 下的 CIFAR10 精度曲线：
+
+```bash
+python scripts/plot_results.py \
+  --fl-csv outputs/cifar10_alpha_sweep/plot_inputs/proposed_active_set/proposed_active_set_alpha_0p05.csv \
+  --fl-csv outputs/cifar10_alpha_sweep/plot_inputs/proposed_active_set/proposed_active_set_alpha_0p1.csv \
+  --fl-csv outputs/cifar10_alpha_sweep/plot_inputs/proposed_active_set/proposed_active_set_alpha_0p3.csv \
+  --fl-csv outputs/cifar10_alpha_sweep/plot_inputs/proposed_active_set/proposed_active_set_alpha_0p5.csv \
+  --output-dir outputs/cifar10_alpha_sweep/figures_proposed_by_alpha
+```
+
+绘制 ProposedActiveSet 在不同 alpha 下的 CIFAR100 精度曲线：
+
+```bash
+python scripts/plot_results.py \
+  --fl-csv outputs/cifar100_alpha_sweep/plot_inputs/proposed_active_set/proposed_active_set_alpha_0p05.csv \
+  --fl-csv outputs/cifar100_alpha_sweep/plot_inputs/proposed_active_set/proposed_active_set_alpha_0p1.csv \
+  --fl-csv outputs/cifar100_alpha_sweep/plot_inputs/proposed_active_set/proposed_active_set_alpha_0p3.csv \
+  --fl-csv outputs/cifar100_alpha_sweep/plot_inputs/proposed_active_set/proposed_active_set_alpha_0p5.csv \
+  --output-dir outputs/cifar100_alpha_sweep/figures_proposed_by_alpha
+```
+
+生成的核心图：
+
+```text
+outputs/<dataset>_alpha_sweep/figures_proposed_by_alpha/accuracy_vs_rounds.pdf
+outputs/<dataset>_alpha_sweep/figures_proposed_by_alpha/test_loss_vs_rounds.pdf
+outputs/<dataset>_alpha_sweep/figures_proposed_by_alpha/train_loss_vs_rounds.pdf
+outputs/<dataset>_alpha_sweep/figures_proposed_by_alpha/lambda_before_after.pdf
+```
+
+如果想画其他方法随 alpha 变化的曲线，只需要把上面命令中的 `proposed_active_set` 替换为对应方法名，例如 `fixed_price`。
+
+#### 11.6 推荐论文呈现方式
+
+建议至少保留以下三类图：
+
+```text
+1. 每个 Dirichlet alpha 下的完整 FL 方法对比图
+2. ProposedActiveSet 在不同 Dirichlet alpha 下的精度曲线
+3. Lambda before/after under different Dirichlet alpha
+4. Server utility / avg_q table under different Dirichlet alpha
+```
+
+如果时间有限，优先跑：
+
+```text
+CIFAR10 alpha sweep: 0.05, 0.1, 0.3, 0.5
+FMNIST alpha sweep: 0.05, 0.1, 0.3, 0.5
+CIFAR100 只跑机制层 alpha sweep，端到端 FL 可作为补充
+```
+
+### 12. 论文中常用表格字段
 
 机制表格建议从这些文件提取：
 

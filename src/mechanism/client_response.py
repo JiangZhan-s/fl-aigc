@@ -5,7 +5,7 @@ import numpy as np
 
 def phi(lambda_k, q, lambda_base: float = 1.0):
     """Compute quality coefficient phi_k(q_k)."""
-    return lambda_base - lambda_k + q
+    return (lambda_base - lambda_k + q) / lambda_base
 
 
 def client_utility(
@@ -31,8 +31,8 @@ def best_response_q(
     lambda_base: float = 1.0,
 ):
     """Return the projected best-response q for a client."""
-    unconstrained = (p * d / lambda_base - alpha) / (2 * beta)
-    return np.clip(unconstrained, 0, lambda_k)
+    raw = (p * d / lambda_base - alpha) / (2 * beta)
+    return np.clip(raw, 0, lambda_k)
 
 
 def participates(

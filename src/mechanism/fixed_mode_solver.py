@@ -147,33 +147,28 @@ def solve_fixed_mode(
         if remaining_budget + tol < lower_cost:
             return _empty_result(num_clients, mode)
 
-        # Maximize net server utility, V_k * phi_k(q_k) - C_k(q_k),
-        # subject to the remaining budget. If the unconstrained net optimum is
-        # affordable, the budget is nonbinding; otherwise solve the binding KKT
-        # condition with a multiplier on the budget constraint.
+        # Budget-constrained KKT condition for maximizing server value under
+        # payment cost. Increasing mu decreases q and therefore decreases cost.
         def q_of_mu(mu):
             raw = (
-                V_i / (1.0 + mu)
+                V_i / (lambda_base * mu)
                 - alpha_i
                 - 2 * beta_i * a
             ) / (4 * beta_i)
             return np.clip(raw, ell, upper)
 
-        unconstrained_q = q_of_mu(0.0)
-        unconstrained_cost = float(np.sum(_internal_cost(unconstrained_q, alpha_i, beta_i, a)))
-
-        if unconstrained_cost <= remaining_budget + tol:
-            q_i = unconstrained_q
+        upper_cost = float(np.sum(_internal_cost(upper, alpha_i, beta_i, a)))
+        if remaining_budget + tol >= upper_cost:
+            q_i = upper
         else:
-            mu_low = 0.0
+            mu_low = np.finfo(np.float64).tiny
             mu_high = 1.0
             while float(np.sum(_internal_cost(q_of_mu(mu_high), alpha_i, beta_i, a))) > remaining_budget:
                 mu_high *= 2.0
 
             for _ in range(max_iter):
                 mu_mid = 0.5 * (mu_low + mu_high)
-                q_mid = q_of_mu(mu_mid)
-                cost_mid = float(np.sum(_internal_cost(q_mid, alpha_i, beta_i, a)))
+                cost_mid = float(np.sum(_internal_cost(q_of_mu(mu_mid), alpha_i, beta_i, a)))
                 if cost_mid > remaining_budget:
                     mu_low = mu_mid
                 else:
