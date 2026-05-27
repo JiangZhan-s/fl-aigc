@@ -695,7 +695,7 @@ for tag in 0p05 0p1 0p3 0p5; do
     python -m src.experiments.run_fl \
       --config outputs/config_sweeps/cifar100/alpha_${tag}.yaml \
       --method ${method} \
-      --rounds 300 \
+      --rounds 200 \
       --clients 50 \
       --subset-size 0 \
       --output-dir outputs/cifar100_alpha_sweep/alpha_${tag}/fl/${method}

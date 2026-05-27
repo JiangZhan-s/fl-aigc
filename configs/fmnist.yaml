@@ -4,14 +4,14 @@ dataset:
   name: fmnist
   root: ./data
   download: true
-  num_clients: 20
-  dirichlet_alpha: 0.5
+  num_clients: 50
+  dirichlet_alpha: 0.05
   min_size: 10
   num_classes: 10
   public_fraction: 0.02
 
 budget:
-  ratio: 0.3
+  ratio: 0.2
 
 mechanism:
   lambda_base: 1.0
