@@ -748,7 +748,7 @@ CIFAR100：
 同样需要先确认 `outputs/config_sweeps/cifar100/alpha_${tag}.yaml` 已存在。
 
 ```bash
-for tag in 0p05 0p1 0p3 0p5; do
+for tag in 0p05 0p01 0p3 0p5; do
   python scripts/plot_results.py \
     --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/no_aigc/fl_metrics.csv \
     --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/random_incentive/fl_metrics.csv \
