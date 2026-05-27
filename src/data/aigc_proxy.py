@@ -61,6 +61,7 @@ def aigc_proxy_augment(
     global_dist: Sequence[float],
     seed: int = 0,
     eps: float = 1e-12,
+    max_extra_ratio: float = 1.0,
 ) -> AIGCProxyResult:
     """Augment client index lists by moving label distributions toward global.
 
@@ -79,6 +80,9 @@ def aigc_proxy_augment(
     if len(global_dist_array) != num_classes:
         raise ValueError("global_dist length must equal num_classes")
 
+    if max_extra_ratio < 0:
+        raise ValueError("max_extra_ratio must be non-negative")
+
     rng = np.random.default_rng(seed)
     pools = _class_pools(labels_array, num_classes)
 
@@ -93,12 +97,29 @@ def aigc_proxy_augment(
         improvement_ratio = float(np.clip(q / max(lambda_k, eps), 0.0, 1.0))
         target_dist = (1.0 - improvement_ratio) * current_dist + improvement_ratio * global_dist_array
 
+        if improvement_ratio <= eps or max_extra_ratio <= 0:
+            original_lambda = tvd_lambda(current_dist, global_dist_array)
+            client_indices_aug.append(original)
+            added_counts.append(0)
+            augmented_lambdas.append(original_lambda)
+            target_distributions.append(target_dist)
+            continue
+
         counts = np.bincount(
             labels_array[np.asarray(original, dtype=np.int64)],
             minlength=num_classes,
         ).astype(np.int64)[:num_classes]
 
         additions_by_class = _target_additions(counts, target_dist, len(original))
+        max_extra = int(np.ceil(max_extra_ratio * len(original)))
+        total_requested = int(additions_by_class.sum())
+        if total_requested > max_extra:
+            if max_extra <= 0:
+                additions_by_class = np.zeros_like(additions_by_class)
+            else:
+                probabilities = additions_by_class.astype(np.float64) / max(total_requested, 1)
+                additions_by_class = rng.multinomial(max_extra, probabilities)
+
         synthetic_indices = []
         for class_id, num_to_add in enumerate(additions_by_class):
             if num_to_add <= 0:

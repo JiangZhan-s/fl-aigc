@@ -268,6 +268,7 @@ def run_end_to_end(
     if debug_mechanism:
         _print_mechanism_debug(method, budget, mechanism_output.result, lambda_before, avg_lambda_before)
 
+    aigc_cfg = config.get("aigc_proxy", {})
     augmentation = aigc_proxy_augment(
         dataset=train_dataset,
         client_indices=client_indices,
@@ -277,6 +278,7 @@ def run_end_to_end(
         num_classes=num_classes,
         global_dist=global_dist,
         seed=seed,
+        max_extra_ratio=float(aigc_cfg.get("max_extra_ratio", 1.0)),
     )
     avg_lambda_after = float(np.mean(augmentation.augmented_lambdas))
 

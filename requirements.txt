@@ -7,3 +7,8 @@ matplotlib
 pandas
 scipy
 pytest
+diffusers
+transformers
+accelerate
+safetensors
+pillow
