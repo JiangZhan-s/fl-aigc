@@ -5,7 +5,7 @@ dataset:
   root: ./data
   download: true
   num_clients: 50
-  dirichlet_alpha: 0.05
+  dirichlet_alpha: 0.3
   min_size: 10
   num_classes: 10
   public_fraction: 0.02

@@ -37,7 +37,7 @@ fl:
   max_grad_norm: 10.0
 aigc_proxy:
   enabled: true
-  max_extra_ratio: 1.0
+  max_extra_ratio: 20
   allow_replacement: true
 verification:
   enabled: true
