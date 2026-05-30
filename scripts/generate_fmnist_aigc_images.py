@@ -1,8 +1,7 @@
-"""Generate cached AIGC images with a pretrained text-to-image model.
+"""Generate cached AIGC images for Fashion-MNIST with a pretrained model.
 
-The default target is CIFAR10. Images are generated at the model's native
-resolution and then resized to 32x32 so they can be used as CIFAR-style
-synthetic samples.
+The script uses a pretrained text-to-image model, then converts images to
+28x28 grayscale PNGs so they match the Fashion-MNIST input shape.
 """
 
 from __future__ import annotations
@@ -12,37 +11,37 @@ import json
 from pathlib import Path
 
 
-CIFAR10_CLASSES = [
-    "airplane",
-    "automobile",
-    "bird",
-    "cat",
-    "deer",
-    "dog",
-    "frog",
-    "horse",
-    "ship",
-    "truck",
+FMNIST_CLASSES = [
+    ("tshirt_top", "T-shirt/top"),
+    ("trouser", "trouser"),
+    ("pullover", "pullover sweater"),
+    ("dress", "dress"),
+    ("coat", "coat"),
+    ("sandal", "sandal"),
+    ("shirt", "shirt"),
+    ("sneaker", "sneaker"),
+    ("bag", "bag"),
+    ("ankle_boot", "ankle boot"),
 ]
 
 
 PROMPTS = {
-    "airplane": "a small realistic airplane, centered object, clean background, natural light",
-    "automobile": "a realistic car, centered object, clean background, natural light",
-    "bird": "a realistic bird, centered object, clean background, natural light",
-    "cat": "a realistic cat, centered object, clean background, natural light",
-    "deer": "a realistic deer, centered object, clean background, natural light",
-    "dog": "a realistic dog, centered object, clean background, natural light",
-    "frog": "a realistic frog, centered object, clean background, natural light",
-    "horse": "a realistic horse, centered object, clean background, natural light",
-    "ship": "a realistic ship, centered object, clean background, natural light",
-    "truck": "a realistic truck, centered object, clean background, natural light",
+    "tshirt_top": "a single plain T-shirt, centered product photo, clean white background",
+    "trouser": "a single pair of trousers, centered product photo, clean white background",
+    "pullover": "a single pullover sweater, centered product photo, clean white background",
+    "dress": "a single dress, centered product photo, clean white background",
+    "coat": "a single coat, centered product photo, clean white background",
+    "sandal": "a single sandal, centered product photo, clean white background",
+    "shirt": "a single shirt, centered product photo, clean white background",
+    "sneaker": "a single sneaker shoe, centered product photo, clean white background",
+    "bag": "a single handbag, centered product photo, clean white background",
+    "ankle_boot": "a single ankle boot, centered product photo, clean white background",
 }
 
 
 NEGATIVE_PROMPT = (
-    "text, watermark, logo, label, blurry, distorted, duplicate object, cropped object, "
-    "extra limbs, low quality, monochrome"
+    "person, mannequin, model wearing item, text, watermark, logo, label, cluttered background, "
+    "multiple objects, cropped object, blurry, distorted, low quality"
 )
 
 
@@ -61,14 +60,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--images-per-class",
         type=int,
-        default=500,
-        help="Number of synthetic images to keep for each CIFAR10 class.",
+        default=6000,
+        help="Number of synthetic images to keep for each Fashion-MNIST class.",
     )
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--height", type=int, default=512)
     parser.add_argument("--width", type=int, default=512)
-    parser.add_argument("--target-size", type=int, default=32)
+    parser.add_argument("--target-size", type=int, default=28)
     parser.add_argument("--num-inference-steps", type=int, default=30)
     parser.add_argument("--guidance-scale", type=float, default=7.5)
     parser.add_argument(
@@ -92,21 +91,25 @@ def existing_count(class_dir: Path) -> int:
 
 
 def save_metadata(output_dir: Path, args: argparse.Namespace) -> None:
-    metadata_path = output_dir / "metadata.json"
     metadata = {
-        "dataset": "cifar10",
+        "dataset": "fmnist",
         "model_id": args.model_id,
         "images_per_class": args.images_per_class,
+        "total_images": args.images_per_class * len(FMNIST_CLASSES),
         "height": args.height,
         "width": args.width,
         "target_size": args.target_size,
+        "channels": 1,
         "num_inference_steps": args.num_inference_steps,
         "guidance_scale": args.guidance_scale,
         "seed": args.seed,
-        "classes": CIFAR10_CLASSES,
+        "classes": [
+            {"id": class_id, "directory": directory, "label": label}
+            for class_id, (directory, label) in enumerate(FMNIST_CLASSES)
+        ],
         "prompts": PROMPTS,
     }
-    metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    (output_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
 
 def load_pipeline(args: argparse.Namespace):
@@ -127,6 +130,12 @@ def load_pipeline(args: argparse.Namespace):
 
 def next_image_path(class_dir: Path, class_name: str, index: int) -> Path:
     return class_dir / f"{class_name}_{index:05d}.png"
+
+
+def to_fmnist_image(image, target_size: int):
+    from PIL import Image
+
+    return image.convert("L").resize((target_size, target_size), Image.Resampling.LANCZOS)
 
 
 def generate_class_images(
@@ -155,8 +164,6 @@ def generate_class_images(
         import torch
 
         current_batch = min(args.batch_size, args.images_per_class - image_index)
-        prompts = [prompt] * current_batch
-        negative_prompts = [NEGATIVE_PROMPT] * current_batch
         generators = [
             torch.Generator(device=args.device).manual_seed(base_seed + image_index + offset)
             for offset in range(current_batch)
@@ -164,8 +171,8 @@ def generate_class_images(
 
         with torch.inference_mode():
             result = pipe(
-                prompts,
-                negative_prompt=negative_prompts,
+                [prompt] * current_batch,
+                negative_prompt=[NEGATIVE_PROMPT] * current_batch,
                 height=args.height,
                 width=args.width,
                 num_inference_steps=args.num_inference_steps,
@@ -174,13 +181,8 @@ def generate_class_images(
             )
 
         for image in result.images:
-            from PIL import Image
-
-            resized = image.convert("RGB").resize(
-                (args.target_size, args.target_size),
-                Image.Resampling.LANCZOS,
-            )
-            resized.save(next_image_path(class_dir, class_name, image_index))
+            fmnist_image = to_fmnist_image(image, args.target_size)
+            fmnist_image.save(next_image_path(class_dir, class_name, image_index))
             image_index += 1
             progress.update(1)
 
@@ -191,14 +193,14 @@ def main() -> None:
     args = parse_args()
     args.device = resolve_device(args.device)
     if args.output_dir is None:
-        output_dir = Path(__file__).resolve().parents[2] / "aigc_img" / "cifar10"
+        output_dir = Path(__file__).resolve().parents[2] / "aigc_img" / "fmnist"
     else:
         output_dir = Path(args.output_dir).expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     save_metadata(output_dir, args)
 
     pipe = load_pipeline(args)
-    for class_id, class_name in enumerate(CIFAR10_CLASSES):
+    for class_id, (class_name, _) in enumerate(FMNIST_CLASSES):
         generate_class_images(
             pipe=pipe,
             class_name=class_name,
