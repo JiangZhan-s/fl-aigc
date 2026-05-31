@@ -12,6 +12,7 @@ from src.data.aigc_proxy import aigc_proxy_augment
 from src.data.datasets import get_dataset
 from src.data.partition import dirichlet_partition
 from src.data.quality import compute_lambdas, global_label_distribution
+from src.data.real_aigc import build_real_aigc_augmented_dataset
 from src.experiments.run_baselines import (
     baseline_binary_aigc,
     baseline_data_size_proportional,
@@ -273,17 +274,35 @@ def run_end_to_end(
         _print_mechanism_debug(method, budget, mechanism_output.result, lambda_before, avg_lambda_before)
 
     aigc_cfg = config.get("aigc_proxy", {})
-    augmentation = aigc_proxy_augment(
-        dataset=train_dataset,
-        client_indices=client_indices,
-        labels=labels,
-        q_values=mechanism_output.result.q,
-        lambda_values=lambda_before,
-        num_classes=num_classes,
-        global_dist=global_dist,
-        seed=seed,
-        max_extra_ratio=float(aigc_cfg.get("max_extra_ratio", 1.0)),
-    )
+    use_real_aigc = bool(aigc_cfg.get("use_real", False)) or aigc_cfg.get("backend", "proxy") == "real"
+    if use_real_aigc:
+        augmentation = build_real_aigc_augmented_dataset(
+            dataset=train_dataset,
+            client_indices=client_indices,
+            labels=labels,
+            q_values=mechanism_output.result.q,
+            lambda_values=lambda_before,
+            num_classes=num_classes,
+            global_dist=global_dist,
+            aigc_root=aigc_cfg.get("real_root", "./aigc_imgs"),
+            dataset_name=dataset_name,
+            seed=seed,
+            max_extra_ratio=float(aigc_cfg.get("max_extra_ratio", 1.0)),
+        )
+        train_dataset_for_fl = augmentation.dataset
+    else:
+        augmentation = aigc_proxy_augment(
+            dataset=train_dataset,
+            client_indices=client_indices,
+            labels=labels,
+            q_values=mechanism_output.result.q,
+            lambda_values=lambda_before,
+            num_classes=num_classes,
+            global_dist=global_dist,
+            seed=seed,
+            max_extra_ratio=float(aigc_cfg.get("max_extra_ratio", 1.0)),
+        )
+        train_dataset_for_fl = train_dataset
     avg_lambda_after = float(np.mean(augmentation.augmented_lambdas))
 
     if debug_mechanism:
@@ -292,7 +311,7 @@ def run_end_to_end(
     model = _build_model(dataset_name, fl_cfg.get("model", "smallcnn"), num_classes)
     history = run_fedavg(
         model=model,
-        train_dataset=train_dataset,
+        train_dataset=train_dataset_for_fl,
         test_dataset=test_dataset,
         client_indices=augmentation.client_indices_aug,
         device=get_device(),
@@ -361,6 +380,8 @@ def main():
     parser.add_argument("--client-fraction", type=float, default=None)
     parser.add_argument("--model", default=None, choices=["smallcnn", "resnet18_cifar", "smallcnn_cifar"])
     parser.add_argument("--debug-mechanism", action="store_true")
+    parser.add_argument("--real-aigc", action="store_true")
+    parser.add_argument("--aigc-root", default=None)
     parser.add_argument("--num-workers", type=int, default=None)
     parser.add_argument("--pin-memory", action="store_true")
     parser.add_argument("--persistent-workers", action="store_true")
@@ -380,6 +401,11 @@ def main():
     config.setdefault("dataset", config.get("data", {}))["subset_size"] = args.subset_size
     if args.model is not None:
         config.setdefault("fl", {})["model"] = args.model
+    if args.real_aigc:
+        config.setdefault("aigc_proxy", {})["use_real"] = True
+        config.setdefault("aigc_proxy", {})["backend"] = "real"
+    if args.aigc_root is not None:
+        config.setdefault("aigc_proxy", {})["real_root"] = args.aigc_root
     fl_cfg = config.setdefault("fl", {})
     if args.batch_size is not None:
         fl_cfg["batch_size"] = args.batch_size

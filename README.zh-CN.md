@@ -982,6 +982,72 @@ for tag in 0p3 0p5; do
 done
 ```
 
+如果要使用已经离线生成好的真实 AIGC 图片池，而不是默认的 AIGC-proxy 重采样，FMNIST 命令加上：
+
+```bash
+--real-aigc --aigc-root ./aigc_imgs
+```
+
+例如：
+
+```bash
+python -m src.experiments.run_fl \
+  --config outputs/config_sweeps/fmnist/alpha_0p3.yaml \
+  --method proposed_active_set \
+  --rounds 100 \
+  --clients 50 \
+  --subset-size 0 \
+  --output-dir outputs/fmnist_real_aigc/alpha_0p3/fl/proposed_active_set \
+  --real-aigc \
+  --aigc-root ./aigc_imgs \
+  --fast-gpu \
+  --num-workers 8 \
+  --prefetch-factor 4 \
+  --batch-size 128
+```
+
+FMNIST real AIGC alpha sweep，和当前 FMNIST alpha sweep 对应：
+
+```bash
+for tag in 0p3 0p5; do
+  for method in no_aigc random_incentive binary_aigc fixed_price data_size_proportional quality_gap_proportional proposed_active_set; do
+    python -m src.experiments.run_fl \
+      --config outputs/config_sweeps/fmnist/alpha_${tag}.yaml \
+      --method ${method} \
+      --rounds 100 \
+      --clients 50 \
+      --subset-size 0 \
+      --output-dir outputs/fmnist_real_aigc_alpha_sweep/alpha_${tag}/fl/${method} \
+      --real-aigc \
+      --aigc-root ./aigc_imgs \
+      --fast-gpu \
+      --num-workers 8 \
+      --prefetch-factor 4 \
+      --batch-size 128
+  done
+done
+```
+
+如果只想先验证 Proposed：
+
+```bash
+for tag in 0p3 0p5; do
+  python -m src.experiments.run_fl \
+    --config outputs/config_sweeps/fmnist/alpha_${tag}.yaml \
+    --method proposed_active_set \
+    --rounds 100 \
+    --clients 50 \
+    --subset-size 0 \
+    --output-dir outputs/fmnist_real_aigc_alpha_sweep/alpha_${tag}/fl/proposed_active_set \
+    --real-aigc \
+    --aigc-root ./aigc_imgs \
+    --fast-gpu \
+    --num-workers 8 \
+    --prefetch-factor 4 \
+    --batch-size 128
+done
+```
+
 A800 上跑 CIFAR100 alpha sweep，包含 `0.3/0.5/0.7/1`：
 
 ```bash
