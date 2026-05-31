@@ -1,7 +1,12 @@
 /data/
 tests
 __pycache__
+<<<<<<< HEAD
 logs
 evaluation_results
 ppo_tensorboard_cifar100
 save
+=======
+aigc_imgs
+*.slurm
+>>>>>>> 06f5616fa107ffcb1b826d3dea3f2a79df684d62

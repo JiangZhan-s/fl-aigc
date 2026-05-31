@@ -23,10 +23,11 @@ class RoundMetrics:
     num_clients: int
 
 
-def evaluate(model, dataloader, criterion, device):
+def evaluate(model, dataloader, criterion, device, use_amp: bool = False):
     """Evaluate model loss and accuracy."""
     model.to(device)
     model.eval()
+    amp_enabled = bool(use_amp and getattr(device, "type", str(device)) == "cuda")
 
     total_loss = 0.0
     total_samples = 0
@@ -34,10 +35,11 @@ def evaluate(model, dataloader, criterion, device):
 
     with torch.no_grad():
         for inputs, targets in dataloader:
-            inputs = inputs.to(device)
-            targets = targets.to(device)
-            logits = model(inputs)
-            loss = criterion(logits, targets)
+            inputs = inputs.to(device, non_blocking=True)
+            targets = targets.to(device, non_blocking=True)
+            with torch.amp.autocast("cuda", enabled=amp_enabled):
+                logits = model(inputs)
+                loss = criterion(logits, targets)
 
             batch_size = targets.size(0)
             total_loss += loss.item() * batch_size
@@ -88,6 +90,11 @@ class FedAvgServer:
         max_grad_norm: float = 10.0,
         client_fraction: float = 1.0,
         optimizer_name: str = "sgd",
+        num_workers: int = 0,
+        pin_memory: bool = False,
+        persistent_workers: bool = False,
+        prefetch_factor: Optional[int] = None,
+        use_amp: bool = False,
         seed: int = 0,
     ):
         self.model = model.to(device)
@@ -103,8 +110,26 @@ class FedAvgServer:
         self.max_grad_norm = max_grad_norm
         self.client_fraction = client_fraction
         self.optimizer_name = optimizer_name
+        self.num_workers = max(0, int(num_workers))
+        self.pin_memory = bool(pin_memory)
+        self.persistent_workers = bool(persistent_workers and self.num_workers > 0)
+        self.prefetch_factor = prefetch_factor if self.num_workers > 0 else None
+        self.use_amp = bool(use_amp)
         self.rng = random.Random(seed)
         self.criterion = nn.CrossEntropyLoss()
+
+    def _loader_kwargs(self, shuffle: bool):
+        """Return DataLoader kwargs for local and test loaders."""
+        kwargs = {
+            "batch_size": self.batch_size,
+            "shuffle": shuffle,
+            "num_workers": self.num_workers,
+            "pin_memory": self.pin_memory,
+            "persistent_workers": self.persistent_workers,
+        }
+        if self.prefetch_factor is not None:
+            kwargs["prefetch_factor"] = self.prefetch_factor
+        return kwargs
 
     def _state_dict_is_finite(self, state_dict):
         """Return whether all floating-point tensors are finite."""
@@ -141,8 +166,7 @@ class FedAvgServer:
             )
             dataloader = DataLoader(
                 Subset(self.train_dataset, self.client_indices[client_id]),
-                batch_size=self.batch_size,
-                shuffle=True,
+                **self._loader_kwargs(shuffle=True),
             )
             state_dict, train_loss = train_local(
                 local_model,
@@ -152,6 +176,7 @@ class FedAvgServer:
                 self.device,
                 self.local_epochs,
                 max_grad_norm=self.max_grad_norm,
+                use_amp=self.use_amp,
             )
             if not self._state_dict_is_finite(state_dict) or not torch.isfinite(torch.tensor(train_loss)):
                 continue
@@ -163,8 +188,8 @@ class FedAvgServer:
             aggregated = fedavg_state_dicts(local_states, local_weights)
             self.model.load_state_dict(aggregated)
 
-        test_loader = DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False)
-        test_loss, test_acc = evaluate(self.model, test_loader, self.criterion, self.device)
+        test_loader = DataLoader(self.test_dataset, **self._loader_kwargs(shuffle=False))
+        test_loss, test_acc = evaluate(self.model, test_loader, self.criterion, self.device, self.use_amp)
         weighted_train_loss = (
             sum(loss * weight for loss, weight in zip(local_losses, local_weights)) / sum(local_weights)
             if local_weights
@@ -202,6 +227,11 @@ def run_fedavg(
     max_grad_norm: float = 10.0,
     client_fraction: float = 1.0,
     optimizer_name: str = "sgd",
+    num_workers: int = 0,
+    pin_memory: bool = False,
+    persistent_workers: bool = False,
+    prefetch_factor: Optional[int] = None,
+    use_amp: bool = False,
     seed: int = 0,
 ):
     """Convenience function for running a FedAvg experiment."""
@@ -219,6 +249,11 @@ def run_fedavg(
         max_grad_norm=max_grad_norm,
         client_fraction=client_fraction,
         optimizer_name=optimizer_name,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        persistent_workers=persistent_workers,
+        prefetch_factor=prefetch_factor,
+        use_amp=use_amp,
         seed=seed,
     )
     return server.fit(rounds)
