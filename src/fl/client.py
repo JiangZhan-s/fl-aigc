@@ -43,6 +43,7 @@ def train_local(
                 grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
                 if not torch.isfinite(grad_norm):
                     optimizer.zero_grad(set_to_none=True)
+                    scaler.update()
                     continue
 
             scaler.step(optimizer)
