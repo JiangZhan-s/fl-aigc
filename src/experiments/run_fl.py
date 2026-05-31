@@ -288,6 +288,7 @@ def run_end_to_end(
             dataset_name=dataset_name,
             seed=seed,
             max_extra_ratio=float(aigc_cfg.get("max_extra_ratio", 1.0)),
+            cache_path=aigc_cfg.get("cache_path"),
         )
         train_dataset_for_fl = augmentation.dataset
     else:
@@ -382,6 +383,7 @@ def main():
     parser.add_argument("--debug-mechanism", action="store_true")
     parser.add_argument("--real-aigc", action="store_true")
     parser.add_argument("--aigc-root", default=None)
+    parser.add_argument("--aigc-cache", default=None)
     parser.add_argument("--num-workers", type=int, default=None)
     parser.add_argument("--pin-memory", action="store_true")
     parser.add_argument("--persistent-workers", action="store_true")
@@ -406,6 +408,8 @@ def main():
         config.setdefault("aigc_proxy", {})["backend"] = "real"
     if args.aigc_root is not None:
         config.setdefault("aigc_proxy", {})["real_root"] = args.aigc_root
+    if args.aigc_cache is not None:
+        config.setdefault("aigc_proxy", {})["cache_path"] = args.aigc_cache
     fl_cfg = config.setdefault("fl", {})
     if args.batch_size is not None:
         fl_cfg["batch_size"] = args.batch_size

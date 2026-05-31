@@ -13,6 +13,7 @@ from typing import Sequence
 
 import numpy as np
 from PIL import Image
+import torch
 from torch.utils.data import ConcatDataset, Dataset
 from torchvision import transforms
 
@@ -57,6 +58,26 @@ class LabeledImagePoolDataset(Dataset):
         return image, int(label)
 
 
+class CachedAIGCPoolDataset(Dataset):
+    """Dataset backed by a tensor cache and selected synthetic indices."""
+
+    def __init__(self, images, labels, selected_indices):
+        self.images = images
+        self.labels = labels
+        self.selected_indices = list(selected_indices)
+
+    def __len__(self):
+        """Return number of selected synthetic samples."""
+        return len(self.selected_indices)
+
+    def __getitem__(self, index):
+        """Return one cached generated image tensor and label."""
+        source_index = int(self.selected_indices[index])
+        image = self.images[source_index].float().div(255.0)
+        image = transforms.functional.normalize(image, (0.2860,), (0.3530,))
+        return image, int(self.labels[source_index])
+
+
 def _fmnist_real_transform():
     """Return transform for generated FMNIST images."""
     return transforms.Compose(
@@ -85,6 +106,16 @@ def _load_class_dirs(aigc_root: Path, dataset_name: str, num_classes: int):
     return {class_id: dataset_root / str(class_id) for class_id in range(num_classes)}
 
 
+def default_cache_path(aigc_root: str, dataset_name: str = "fmnist") -> Path:
+    """Return default tensor-cache path for an AIGC dataset."""
+    return Path(aigc_root) / dataset_name / "tensor_cache.pt"
+
+
+def load_aigc_tensor_cache(cache_path: str):
+    """Load an AIGC tensor cache from disk."""
+    return torch.load(cache_path, map_location="cpu")
+
+
 def _list_image_pool(aigc_root: Path, dataset_name: str, num_classes: int):
     """Return generated image path pools grouped by class id."""
     class_dirs = _load_class_dirs(aigc_root, dataset_name, num_classes)
@@ -103,6 +134,22 @@ def _list_image_pool(aigc_root: Path, dataset_name: str, num_classes: int):
     return pools
 
 
+def _load_cached_pool(cache_path: Path, num_classes: int):
+    """Return cache tensors and class-wise source index pools."""
+    cache = load_aigc_tensor_cache(str(cache_path))
+    images = cache["images"]
+    labels = cache["labels"].long()
+    if images.ndim != 4 or images.shape[1:] != (1, 28, 28):
+        raise ValueError("FMNIST AIGC tensor cache must have shape [N, 1, 28, 28]")
+    if len(images) != len(labels):
+        raise ValueError("AIGC tensor cache images and labels must align")
+    pools = []
+    labels_np = labels.numpy()
+    for class_id in range(num_classes):
+        pools.append(np.where(labels_np == class_id)[0].astype(np.int64).tolist())
+    return images, labels, pools
+
+
 def build_real_aigc_augmented_dataset(
     dataset,
     client_indices: Sequence[Sequence[int]],
@@ -116,6 +163,7 @@ def build_real_aigc_augmented_dataset(
     seed: int = 0,
     eps: float = 1e-12,
     max_extra_ratio: float = 1.0,
+    cache_path: str = None,
 ) -> RealAIGCResult:
     """Append real generated images according to mechanism-selected q values."""
     normalized_name = dataset_name.lower()
@@ -137,12 +185,20 @@ def build_real_aigc_augmented_dataset(
         raise ValueError("max_extra_ratio must be non-negative")
 
     rng = np.random.default_rng(seed)
-    pools = _list_image_pool(Path(aigc_root), "fmnist", num_classes)
+    resolved_cache_path = Path(cache_path) if cache_path else default_cache_path(aigc_root, "fmnist")
+    use_cache = resolved_cache_path.exists()
+    if use_cache:
+        cached_images, cached_labels, pools = _load_cached_pool(resolved_cache_path, num_classes)
+    else:
+        cached_images = None
+        cached_labels = None
+        pools = _list_image_pool(Path(aigc_root), "fmnist", num_classes)
     if any(len(pool) == 0 for pool in pools):
         missing = [str(class_id) for class_id, pool in enumerate(pools) if len(pool) == 0]
         raise ValueError(f"Missing real AIGC image pool for class ids: {', '.join(missing)}")
 
     synthetic_samples = []
+    synthetic_source_indices = []
     synthetic_labels = []
     client_indices_aug = []
     added_counts = []
@@ -179,17 +235,23 @@ def build_real_aigc_augmented_dataset(
                 additions_by_class = rng.multinomial(max_extra, probabilities)
 
         synthetic_indices = []
-        start = len(dataset) + len(synthetic_samples)
+        selected_count_before = len(synthetic_source_indices) if use_cache else len(synthetic_samples)
+        start = len(dataset) + selected_count_before
         for class_id, num_to_add in enumerate(additions_by_class):
             if num_to_add <= 0:
                 continue
             pool = pools[class_id]
             sampled_positions = rng.choice(len(pool), size=int(num_to_add), replace=True)
             for position in sampled_positions:
-                synthetic_samples.append((pool[int(position)], class_id))
+                source_item = pool[int(position)]
+                if use_cache:
+                    synthetic_source_indices.append(int(source_item))
+                else:
+                    synthetic_samples.append((source_item, class_id))
                 synthetic_labels.append(class_id)
 
-        synthetic_indices.extend(range(start, len(dataset) + len(synthetic_samples)))
+        selected_count_after = len(synthetic_source_indices) if use_cache else len(synthetic_samples)
+        synthetic_indices.extend(range(start, len(dataset) + selected_count_after))
         augmented = original + synthetic_indices
         combined_labels = np.concatenate([labels_array, np.asarray(synthetic_labels, dtype=np.int64)])
         augmented_lambda = tvd_lambda(label_distribution(combined_labels, augmented, num_classes), global_dist_array)
@@ -197,7 +259,10 @@ def build_real_aigc_augmented_dataset(
         if augmented_lambda > original_lambda:
             synthetic_count = len(synthetic_indices)
             if synthetic_count > 0:
-                del synthetic_samples[-synthetic_count:]
+                if use_cache:
+                    del synthetic_source_indices[-synthetic_count:]
+                else:
+                    del synthetic_samples[-synthetic_count:]
                 del synthetic_labels[-synthetic_count:]
             augmented = original
             synthetic_indices = []
@@ -208,11 +273,14 @@ def build_real_aigc_augmented_dataset(
         augmented_lambdas.append(augmented_lambda)
         target_distributions.append(target_dist)
 
-    synthetic_dataset = LabeledImagePoolDataset(
-        synthetic_samples,
-        transform=_fmnist_real_transform(),
-        mode="L",
-    )
+    if use_cache:
+        synthetic_dataset = CachedAIGCPoolDataset(cached_images, cached_labels, synthetic_source_indices)
+    else:
+        synthetic_dataset = LabeledImagePoolDataset(
+            synthetic_samples,
+            transform=_fmnist_real_transform(),
+            mode="L",
+        )
     augmented_dataset = ConcatDataset([dataset, synthetic_dataset])
 
     return RealAIGCResult(

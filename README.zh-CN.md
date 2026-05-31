@@ -988,6 +988,27 @@ done
 --real-aigc --aigc-root ./aigc_imgs
 ```
 
+建议先把真实图片池转换成单文件 tensor cache，避免训练时反复打开 6W 张图片：
+
+```bash
+python scripts/build_aigc_cache.py \
+  --dataset fmnist \
+  --aigc-root ./aigc_imgs \
+  --output ./aigc_imgs/fmnist/tensor_cache.pt
+```
+
+生成后，`--real-aigc --aigc-root ./aigc_imgs` 会自动优先读取：
+
+```text
+./aigc_imgs/fmnist/tensor_cache.pt
+```
+
+也可以显式指定：
+
+```bash
+--aigc-cache ./aigc_imgs/fmnist/tensor_cache.pt
+```
+
 例如：
 
 ```bash
@@ -1000,6 +1021,7 @@ python -m src.experiments.run_fl \
   --output-dir outputs/fmnist_real_aigc/alpha_0p3/fl/proposed_active_set \
   --real-aigc \
   --aigc-root ./aigc_imgs \
+  --aigc-cache ./aigc_imgs/fmnist/tensor_cache.pt \
   --fast-gpu \
   --num-workers 8 \
   --prefetch-factor 4 \
@@ -1020,6 +1042,7 @@ for tag in 0p3 0p5; do
       --output-dir outputs/fmnist_real_aigc_alpha_sweep/alpha_${tag}/fl/${method} \
       --real-aigc \
       --aigc-root ./aigc_imgs \
+      --aigc-cache ./aigc_imgs/fmnist/tensor_cache.pt \
       --fast-gpu \
       --num-workers 8 \
       --prefetch-factor 4 \
@@ -1041,6 +1064,7 @@ for tag in 0p3 0p5; do
     --output-dir outputs/fmnist_real_aigc_alpha_sweep/alpha_${tag}/fl/proposed_active_set \
     --real-aigc \
     --aigc-root ./aigc_imgs \
+    --aigc-cache ./aigc_imgs/fmnist/tensor_cache.pt \
     --fast-gpu \
     --num-workers 8 \
     --prefetch-factor 4 \
