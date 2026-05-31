@@ -95,6 +95,7 @@ class FedAvgServer:
         persistent_workers: bool = False,
         prefetch_factor: Optional[int] = None,
         use_amp: bool = False,
+        progress: bool = False,
         seed: int = 0,
     ):
         self.model = model.to(device)
@@ -115,6 +116,7 @@ class FedAvgServer:
         self.persistent_workers = bool(persistent_workers and self.num_workers > 0)
         self.prefetch_factor = prefetch_factor if self.num_workers > 0 else None
         self.use_amp = bool(use_amp)
+        self.progress = bool(progress)
         self.rng = random.Random(seed)
         self.criterion = nn.CrossEntropyLoss()
 
@@ -149,12 +151,23 @@ class FedAvgServer:
 
     def train_round(self, round_id: int):
         selected_clients = self.sample_clients()
+        if self.progress:
+            print(
+                f"[FedAvg] round {round_id}: training {len(selected_clients)} clients",
+                flush=True,
+            )
         local_states = []
         local_weights = []
         local_losses = []
 
         global_state = copy.deepcopy(self.model.state_dict())
-        for client_id in selected_clients:
+        for client_pos, client_id in enumerate(selected_clients, start=1):
+            if self.progress:
+                print(
+                    f"[FedAvg] round {round_id}: client {client_pos}/{len(selected_clients)} "
+                    f"id={client_id} samples={len(self.client_indices[client_id])}",
+                    flush=True,
+                )
             local_model = copy.deepcopy(self.model)
             local_model.load_state_dict(global_state)
             optimizer = _make_optimizer(
@@ -189,6 +202,8 @@ class FedAvgServer:
             self.model.load_state_dict(aggregated)
 
         test_loader = DataLoader(self.test_dataset, **self._loader_kwargs(shuffle=False))
+        if self.progress:
+            print(f"[FedAvg] round {round_id}: evaluating", flush=True)
         test_loss, test_acc = evaluate(self.model, test_loader, self.criterion, self.device, self.use_amp)
         weighted_train_loss = (
             sum(loss * weight for loss, weight in zip(local_losses, local_weights)) / sum(local_weights)
@@ -196,13 +211,22 @@ class FedAvgServer:
             else 0.0
         )
 
-        return RoundMetrics(
+        metrics = RoundMetrics(
             round=round_id,
             train_loss=weighted_train_loss,
             test_loss=test_loss,
             test_accuracy=test_acc,
             num_clients=len(selected_clients),
         )
+        if self.progress:
+            print(
+                f"[FedAvg] round {round_id}: "
+                f"acc={metrics.test_accuracy:.4f} "
+                f"test_loss={metrics.test_loss:.4f} "
+                f"train_loss={metrics.train_loss:.4f}",
+                flush=True,
+            )
+        return metrics
 
     def fit(self, rounds: int):
         """Run FedAvg for a fixed number of communication rounds."""
@@ -232,6 +256,7 @@ def run_fedavg(
     persistent_workers: bool = False,
     prefetch_factor: Optional[int] = None,
     use_amp: bool = False,
+    progress: bool = False,
     seed: int = 0,
 ):
     """Convenience function for running a FedAvg experiment."""
@@ -254,6 +279,7 @@ def run_fedavg(
         persistent_workers=persistent_workers,
         prefetch_factor=prefetch_factor,
         use_amp=use_amp,
+        progress=progress,
         seed=seed,
     )
     return server.fit(rounds)

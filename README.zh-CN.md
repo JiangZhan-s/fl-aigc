@@ -1025,7 +1025,8 @@ python -m src.experiments.run_fl \
   --fast-gpu \
   --num-workers 8 \
   --prefetch-factor 4 \
-  --batch-size 128
+  --batch-size 128 \
+  --progress
 ```
 
 FMNIST real AIGC alpha sweep，和当前 FMNIST alpha sweep 对应：
@@ -1046,7 +1047,8 @@ for tag in 0p3 0p5; do
       --fast-gpu \
       --num-workers 8 \
       --prefetch-factor 4 \
-      --batch-size 128
+      --batch-size 128 \
+      --progress
   done
 done
 ```
@@ -1068,7 +1070,8 @@ for tag in 0p3 0p5; do
     --fast-gpu \
     --num-workers 8 \
     --prefetch-factor 4 \
-    --batch-size 128
+    --batch-size 128 \
+    --progress
 done
 ```
 

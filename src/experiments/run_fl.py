@@ -231,6 +231,7 @@ def run_end_to_end(
     method: str = "proposed_active_set",
     output_dir: Path = None,
     debug_mechanism: bool = False,
+    progress: bool = False,
 ):
     """Run mechanism/baseline selection, AIGC-proxy augmentation, and FedAvg."""
     seed = int(config.get("seed", 0))
@@ -244,8 +245,16 @@ def run_end_to_end(
         torch.backends.cudnn.benchmark = True
     dataset_name = _dataset_key(dataset_name_from_config(config))
     num_classes = int(data_cfg.get("num_classes", _num_classes(dataset_name)))
+    if progress:
+        print(
+            f"[run_fl] start dataset={dataset_name} method={method} seed={seed} "
+            f"clients={data_cfg.get('num_clients', 20)}",
+            flush=True,
+        )
 
     download = bool(data_cfg.get("download", True))
+    if progress:
+        print("[run_fl] loading datasets", flush=True)
     train_dataset_full = get_dataset(dataset_name, data_cfg.get("root", "./data"), train=True, download=download)
     test_dataset = get_dataset(dataset_name, data_cfg.get("root", "./data"), train=False, download=download)
     labels_full = _extract_labels(train_dataset_full)
@@ -255,6 +264,8 @@ def run_end_to_end(
         data_cfg.get("subset_size"),
     )
 
+    if progress:
+        print("[run_fl] partitioning clients", flush=True)
     client_indices = dirichlet_partition(
         labels=labels,
         num_clients=int(data_cfg.get("num_clients", 20)),
@@ -267,6 +278,14 @@ def run_end_to_end(
     budget = compute_budget(params, budget_ratio_from_config(config))
     mechanism_output = _run_method(params, budget, method, seed, config)
     validate_mechanism_result(params, mechanism_output.result, budget)
+    if progress:
+        q_values = np.asarray(mechanism_output.result.q, dtype=np.float64)
+        print(
+            f"[run_fl] mechanism done: B={budget:.6f} "
+            f"cost={mechanism_output.result.total_cost:.6f} "
+            f"q_mean={q_values.mean():.6f} q_max={q_values.max():.6f}",
+            flush=True,
+        )
 
     global_dist = global_label_distribution(labels, num_classes)
     avg_lambda_before = float(np.mean(lambda_before))
@@ -276,6 +295,8 @@ def run_end_to_end(
     aigc_cfg = config.get("aigc_proxy", {})
     use_real_aigc = bool(aigc_cfg.get("use_real", False)) or aigc_cfg.get("backend", "proxy") == "real"
     if use_real_aigc:
+        if progress:
+            print("[run_fl] applying real AIGC augmentation", flush=True)
         augmentation = build_real_aigc_augmented_dataset(
             dataset=train_dataset,
             client_indices=client_indices,
@@ -292,6 +313,8 @@ def run_end_to_end(
         )
         train_dataset_for_fl = augmentation.dataset
     else:
+        if progress:
+            print("[run_fl] applying AIGC-proxy augmentation", flush=True)
         augmentation = aigc_proxy_augment(
             dataset=train_dataset,
             client_indices=client_indices,
@@ -305,6 +328,13 @@ def run_end_to_end(
         )
         train_dataset_for_fl = train_dataset
     avg_lambda_after = float(np.mean(augmentation.augmented_lambdas))
+    if progress:
+        print(
+            f"[run_fl] augmentation done: lambda_before={avg_lambda_before:.6f} "
+            f"lambda_after={avg_lambda_after:.6f} "
+            f"added={int(np.sum(augmentation.added_counts))}",
+            flush=True,
+        )
 
     if debug_mechanism:
         _print_augmentation_debug(augmentation, avg_lambda_before, avg_lambda_after)
@@ -334,6 +364,7 @@ def run_end_to_end(
             else None
         ),
         use_amp=bool(fl_cfg.get("amp", False)),
+        progress=progress,
         seed=seed,
     )
 
@@ -381,6 +412,7 @@ def main():
     parser.add_argument("--client-fraction", type=float, default=None)
     parser.add_argument("--model", default=None, choices=["smallcnn", "resnet18_cifar", "smallcnn_cifar"])
     parser.add_argument("--debug-mechanism", action="store_true")
+    parser.add_argument("--progress", action="store_true")
     parser.add_argument("--real-aigc", action="store_true")
     parser.add_argument("--aigc-root", default=None)
     parser.add_argument("--aigc-cache", default=None)
@@ -441,6 +473,7 @@ def main():
         method=args.method,
         output_dir=output_dir,
         debug_mechanism=args.debug_mechanism,
+        progress=args.progress,
     )
     print(df.to_string(index=False))
 
