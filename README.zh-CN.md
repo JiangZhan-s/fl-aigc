@@ -710,25 +710,25 @@ done
 FMNIST：
 
 ```bash
-for tag in 0p01 0p05 0p1 0p3 0p5; do
+for tag in 0p3 0p5 ; do
   python scripts/plot_results.py \
-    --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/no_aigc/fl_metrics.csv \
-    --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/random_incentive/fl_metrics.csv \
-    --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/binary_aigc/fl_metrics.csv \
-    --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/fixed_price/fl_metrics.csv \
-    --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/data_size_proportional/fl_metrics.csv \
-    --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/quality_gap_proportional/fl_metrics.csv \
-    --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/proposed_active_set/fl_metrics.csv \
-    --baseline-csv outputs/fmnist_alpha_sweep/alpha_${tag}/baselines/baseline_clients.csv \
-    --baseline-json outputs/fmnist_alpha_sweep/alpha_${tag}/baselines/baseline_summary.json \
-    --output-dir outputs/fmnist_alpha_sweep/alpha_${tag}/figures_fl_compare
+    --fl-csv outputs/fmnist_alpha_sweep_new/alpha_${tag}/fl/no_aigc/fl_metrics.csv \
+    --fl-csv outputs/fmnist_alpha_sweep_new/alpha_${tag}/fl/random_incentive/fl_metrics.csv \
+    --fl-csv outputs/fmnist_alpha_sweep_new/alpha_${tag}/fl/binary_aigc/fl_metrics.csv \
+    --fl-csv outputs/fmnist_alpha_sweep_new/alpha_${tag}/fl/fixed_price/fl_metrics.csv \
+    --fl-csv outputs/fmnist_alpha_sweep_new/alpha_${tag}/fl/data_size_proportional/fl_metrics.csv \
+    --fl-csv outputs/fmnist_alpha_sweep_new/alpha_${tag}/fl/quality_gap_proportional/fl_metrics.csv \
+    --fl-csv outputs/fmnist_alpha_sweep_new/alpha_${tag}/fl/proposed_active_set/fl_metrics.csv \
+    --baseline-csv outputs/fmnist_alpha_sweep_new/alpha_${tag}/baselines/baseline_clients.csv \
+    --baseline-json outputs/fmnist_alpha_sweep_new/alpha_${tag}/baselines/baseline_summary.json \
+    --output-dir outputs/fmnist_alpha_sweep_new/alpha_${tag}/figures_fl_compare
 done
 ```
 
 CIFAR10：
 
 ```bash
-for tag in 0p01 0p05 0p5; do
+for tag in 0p3 0p7 0p5; do
   python scripts/plot_results.py \
     --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/no_aigc/fl_metrics.csv \
     --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/random_incentive/fl_metrics.csv \
@@ -748,18 +748,18 @@ CIFAR100：
 同样需要先确认 `outputs/config_sweeps/cifar100/alpha_${tag}.yaml` 已存在。
 
 ```bash
-for tag in 0p05 0p01 0p3 0p5; do
+for tag in 0p3 1 0p7 0p5; do
   python scripts/plot_results.py \
-    --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/no_aigc/fl_metrics.csv \
-    --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/random_incentive/fl_metrics.csv \
-    --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/binary_aigc/fl_metrics.csv \
-    --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/fixed_price/fl_metrics.csv \
-    --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/data_size_proportional/fl_metrics.csv \
-    --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/quality_gap_proportional/fl_metrics.csv \
-    --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/proposed_active_set/fl_metrics.csv \
-    --baseline-csv outputs/cifar100_alpha_sweep/alpha_${tag}/baselines/baseline_clients.csv \
-    --baseline-json outputs/cifar100_alpha_sweep/alpha_${tag}/baselines/baseline_summary.json \
-    --output-dir outputs/cifar100_alpha_sweep/alpha_${tag}/figures_fl_compare
+    --fl-csv outputs/cifar100_alpha_sweep_new/alpha_${tag}/fl/no_aigc/fl_metrics.csv \
+    --fl-csv outputs/cifar100_alpha_sweep_new/alpha_${tag}/fl/random_incentive/fl_metrics.csv \
+    --fl-csv outputs/cifar100_alpha_sweep_new/alpha_${tag}/fl/binary_aigc/fl_metrics.csv \
+    --fl-csv outputs/cifar100_alpha_sweep_new/alpha_${tag}/fl/fixed_price/fl_metrics.csv \
+    --fl-csv outputs/cifar100_alpha_sweep_new/alpha_${tag}/fl/data_size_proportional/fl_metrics.csv \
+    --fl-csv outputs/cifar100_alpha_sweep_new/alpha_${tag}/fl/quality_gap_proportional/fl_metrics.csv \
+    --fl-csv outputs/cifar100_alpha_sweep_new/alpha_${tag}/fl/proposed_active_set/fl_metrics.csv \
+    --baseline-csv outputs/cifar100_alpha_sweep_new/alpha_${tag}/baselines/baseline_clients.csv \
+    --baseline-json outputs/cifar100_alpha_sweep_new/alpha_${tag}/baselines/baseline_summary.json \
+    --output-dir outputs/cifar100_alpha_sweep_new/alpha_${tag}/figures_fl_compare
 done
 ```
 
