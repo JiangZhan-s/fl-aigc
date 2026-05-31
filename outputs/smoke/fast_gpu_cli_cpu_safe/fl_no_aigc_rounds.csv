@@ -1,0 +1,2 @@
+round,test_accuracy,test_loss,train_loss,avg_lambda_before,avg_lambda_after,budget_used,participation_rate,method
+1,0.1013,3.443260224533081,1.913134419674776,0.4984930951702541,0.4984930951702541,0.03402086066627687,1.0,no_aigc

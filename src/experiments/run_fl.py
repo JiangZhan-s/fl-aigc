@@ -237,6 +237,10 @@ def run_end_to_end(
 
     data_cfg = dataset_config(config)
     fl_cfg = config.get("fl", {})
+    if bool(fl_cfg.get("cuda_benchmark", False)) and get_device().type == "cuda":
+        import torch
+
+        torch.backends.cudnn.benchmark = True
     dataset_name = _dataset_key(dataset_name_from_config(config))
     num_classes = int(data_cfg.get("num_classes", _num_classes(dataset_name)))
 
@@ -301,6 +305,15 @@ def run_end_to_end(
         max_grad_norm=float(fl_cfg.get("max_grad_norm", 10.0)),
         client_fraction=float(fl_cfg.get("client_fraction", 1.0)),
         optimizer_name=fl_cfg.get("optimizer", "sgd"),
+        num_workers=int(fl_cfg.get("num_workers", 0)),
+        pin_memory=bool(fl_cfg.get("pin_memory", False)),
+        persistent_workers=bool(fl_cfg.get("persistent_workers", False)),
+        prefetch_factor=(
+            int(fl_cfg["prefetch_factor"])
+            if fl_cfg.get("prefetch_factor") is not None
+            else None
+        ),
+        use_amp=bool(fl_cfg.get("amp", False)),
         seed=seed,
     )
 
@@ -344,8 +357,21 @@ def main():
     parser.add_argument("--rounds", type=int, default=2)
     parser.add_argument("--clients", type=int, default=5)
     parser.add_argument("--subset-size", type=int, default=2000)
+    parser.add_argument("--batch-size", type=int, default=None)
+    parser.add_argument("--client-fraction", type=float, default=None)
     parser.add_argument("--model", default=None, choices=["smallcnn", "resnet18_cifar", "smallcnn_cifar"])
     parser.add_argument("--debug-mechanism", action="store_true")
+    parser.add_argument("--num-workers", type=int, default=None)
+    parser.add_argument("--pin-memory", action="store_true")
+    parser.add_argument("--persistent-workers", action="store_true")
+    parser.add_argument("--prefetch-factor", type=int, default=None)
+    parser.add_argument("--amp", action="store_true")
+    parser.add_argument("--cuda-benchmark", action="store_true")
+    parser.add_argument(
+        "--fast-gpu",
+        action="store_true",
+        help="Enable CUDA-friendly defaults: AMP, pinned memory, persistent workers, and cuDNN benchmark.",
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -354,6 +380,30 @@ def main():
     config.setdefault("dataset", config.get("data", {}))["subset_size"] = args.subset_size
     if args.model is not None:
         config.setdefault("fl", {})["model"] = args.model
+    fl_cfg = config.setdefault("fl", {})
+    if args.batch_size is not None:
+        fl_cfg["batch_size"] = args.batch_size
+    if args.client_fraction is not None:
+        fl_cfg["client_fraction"] = args.client_fraction
+    if args.fast_gpu:
+        fl_cfg["amp"] = True
+        fl_cfg["pin_memory"] = True
+        fl_cfg["persistent_workers"] = True
+        fl_cfg["cuda_benchmark"] = True
+        fl_cfg.setdefault("num_workers", 8)
+        fl_cfg.setdefault("prefetch_factor", 4)
+    if args.num_workers is not None:
+        fl_cfg["num_workers"] = args.num_workers
+    if args.pin_memory:
+        fl_cfg["pin_memory"] = True
+    if args.persistent_workers:
+        fl_cfg["persistent_workers"] = True
+    if args.prefetch_factor is not None:
+        fl_cfg["prefetch_factor"] = args.prefetch_factor
+    if args.amp:
+        fl_cfg["amp"] = True
+    if args.cuda_benchmark:
+        fl_cfg["cuda_benchmark"] = True
 
     output_dir = args.output_dir or Path(config.get("output", {}).get("dir", "./outputs"))
     df = run_end_to_end(

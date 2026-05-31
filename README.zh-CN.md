@@ -710,25 +710,25 @@ done
 FMNIST：
 
 ```bash
-for tag in 0p01 0p05 0p1 0p3 0p5; do
+for tag in 0p3 0p5 ; do
   python scripts/plot_results.py \
-    --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/no_aigc/fl_metrics.csv \
-    --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/random_incentive/fl_metrics.csv \
-    --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/binary_aigc/fl_metrics.csv \
-    --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/fixed_price/fl_metrics.csv \
-    --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/data_size_proportional/fl_metrics.csv \
-    --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/quality_gap_proportional/fl_metrics.csv \
-    --fl-csv outputs/fmnist_alpha_sweep/alpha_${tag}/fl/proposed_active_set/fl_metrics.csv \
-    --baseline-csv outputs/fmnist_alpha_sweep/alpha_${tag}/baselines/baseline_clients.csv \
-    --baseline-json outputs/fmnist_alpha_sweep/alpha_${tag}/baselines/baseline_summary.json \
-    --output-dir outputs/fmnist_alpha_sweep/alpha_${tag}/figures_fl_compare
+    --fl-csv outputs/fmnist_alpha_sweep_new/alpha_${tag}/fl/no_aigc/fl_metrics.csv \
+    --fl-csv outputs/fmnist_alpha_sweep_new/alpha_${tag}/fl/random_incentive/fl_metrics.csv \
+    --fl-csv outputs/fmnist_alpha_sweep_new/alpha_${tag}/fl/binary_aigc/fl_metrics.csv \
+    --fl-csv outputs/fmnist_alpha_sweep_new/alpha_${tag}/fl/fixed_price/fl_metrics.csv \
+    --fl-csv outputs/fmnist_alpha_sweep_new/alpha_${tag}/fl/data_size_proportional/fl_metrics.csv \
+    --fl-csv outputs/fmnist_alpha_sweep_new/alpha_${tag}/fl/quality_gap_proportional/fl_metrics.csv \
+    --fl-csv outputs/fmnist_alpha_sweep_new/alpha_${tag}/fl/proposed_active_set/fl_metrics.csv \
+    --baseline-csv outputs/fmnist_alpha_sweep_new/alpha_${tag}/baselines/baseline_clients.csv \
+    --baseline-json outputs/fmnist_alpha_sweep_new/alpha_${tag}/baselines/baseline_summary.json \
+    --output-dir outputs/fmnist_alpha_sweep_new/alpha_${tag}/figures_fl_compare
 done
 ```
 
 CIFAR10：
 
 ```bash
-for tag in 0p01 0p05 0p5; do
+for tag in 0p3 0p7 0p5; do
   python scripts/plot_results.py \
     --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/no_aigc/fl_metrics.csv \
     --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/random_incentive/fl_metrics.csv \
@@ -748,18 +748,18 @@ CIFAR100：
 同样需要先确认 `outputs/config_sweeps/cifar100/alpha_${tag}.yaml` 已存在。
 
 ```bash
-for tag in 0p05 0p01 0p3 0p5; do
+for tag in 0p3 1 0p7 0p5; do
   python scripts/plot_results.py \
-    --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/no_aigc/fl_metrics.csv \
-    --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/random_incentive/fl_metrics.csv \
-    --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/binary_aigc/fl_metrics.csv \
-    --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/fixed_price/fl_metrics.csv \
-    --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/data_size_proportional/fl_metrics.csv \
-    --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/quality_gap_proportional/fl_metrics.csv \
-    --fl-csv outputs/cifar100_alpha_sweep/alpha_${tag}/fl/proposed_active_set/fl_metrics.csv \
-    --baseline-csv outputs/cifar100_alpha_sweep/alpha_${tag}/baselines/baseline_clients.csv \
-    --baseline-json outputs/cifar100_alpha_sweep/alpha_${tag}/baselines/baseline_summary.json \
-    --output-dir outputs/cifar100_alpha_sweep/alpha_${tag}/figures_fl_compare
+    --fl-csv outputs/cifar100_alpha_sweep_new/alpha_${tag}/fl/no_aigc/fl_metrics.csv \
+    --fl-csv outputs/cifar100_alpha_sweep_new/alpha_${tag}/fl/random_incentive/fl_metrics.csv \
+    --fl-csv outputs/cifar100_alpha_sweep_new/alpha_${tag}/fl/binary_aigc/fl_metrics.csv \
+    --fl-csv outputs/cifar100_alpha_sweep_new/alpha_${tag}/fl/fixed_price/fl_metrics.csv \
+    --fl-csv outputs/cifar100_alpha_sweep_new/alpha_${tag}/fl/data_size_proportional/fl_metrics.csv \
+    --fl-csv outputs/cifar100_alpha_sweep_new/alpha_${tag}/fl/quality_gap_proportional/fl_metrics.csv \
+    --fl-csv outputs/cifar100_alpha_sweep_new/alpha_${tag}/fl/proposed_active_set/fl_metrics.csv \
+    --baseline-csv outputs/cifar100_alpha_sweep_new/alpha_${tag}/baselines/baseline_clients.csv \
+    --baseline-json outputs/cifar100_alpha_sweep_new/alpha_${tag}/baselines/baseline_summary.json \
+    --output-dir outputs/cifar100_alpha_sweep_new/alpha_${tag}/figures_fl_compare
 done
 ```
 
@@ -905,6 +905,101 @@ dirichlet_alpha=0.3
 budget_ratio=0.4
 local_epochs=5
 batch_size=32
+```
+
+### A800 / 大显存加速命令
+
+端到端 FL 默认是保守配置。A800 80G 上建议开启数据加载多进程、pinned memory、AMP 和 cuDNN benchmark。单次运行模板如下：
+
+```bash
+python -m src.experiments.run_fl \
+  --config outputs/config_sweeps/cifar10/alpha_0p3.yaml \
+  --method proposed_active_set \
+  --rounds 200 \
+  --clients 50 \
+  --subset-size 0 \
+  --output-dir outputs/cifar10_alpha_sweep/alpha_0p3/fl/proposed_active_set \
+  --fast-gpu \
+  --num-workers 8 \
+  --batch-size 128
+```
+
+推荐 A800 通用加速参数：
+
+```bash
+--fast-gpu --num-workers 8 --prefetch-factor 4 --batch-size 128
+```
+
+如果 CPU 核心多、I/O 充足，可以尝试更激进配置：
+
+```bash
+--fast-gpu --num-workers 16 --prefetch-factor 4 --batch-size 256
+```
+
+如果服务器共享内存或 DataLoader worker 报错，降到：
+
+```bash
+--fast-gpu --num-workers 4 --prefetch-factor 2 --batch-size 128
+```
+
+A800 上跑 CIFAR10 alpha sweep，包含 `0.3/0.5/0.7/1`：
+
+```bash
+for tag in 0p3 0p5 0p7 1; do
+  for method in no_aigc random_incentive binary_aigc fixed_price data_size_proportional quality_gap_proportional proposed_active_set; do
+    python -m src.experiments.run_fl \
+      --config outputs/config_sweeps/cifar10/alpha_${tag}.yaml \
+      --method ${method} \
+      --rounds 200 \
+      --clients 50 \
+      --subset-size 0 \
+      --output-dir outputs/cifar10_alpha_sweep/alpha_${tag}/fl/${method} \
+      --fast-gpu \
+      --num-workers 8 \
+      --prefetch-factor 4 \
+      --batch-size 128
+  done
+done
+```
+
+A800 上跑 FMNIST alpha sweep：
+
+```bash
+for tag in 0p3 0p5; do
+  for method in no_aigc random_incentive binary_aigc fixed_price data_size_proportional quality_gap_proportional proposed_active_set; do
+    python -m src.experiments.run_fl \
+      --config outputs/config_sweeps/fmnist/alpha_${tag}.yaml \
+      --method ${method} \
+      --rounds 100 \
+      --clients 50 \
+      --subset-size 0 \
+      --output-dir outputs/fmnist_alpha_sweep/alpha_${tag}/fl/${method} \
+      --fast-gpu \
+      --num-workers 8 \
+      --prefetch-factor 4 \
+      --batch-size 128
+  done
+done
+```
+
+A800 上跑 CIFAR100 alpha sweep，包含 `0.3/0.5/0.7/1`：
+
+```bash
+for tag in 0p3 0p5 0p7 1; do
+  for method in no_aigc random_incentive binary_aigc fixed_price data_size_proportional quality_gap_proportional proposed_active_set; do
+    python -m src.experiments.run_fl \
+      --config outputs/config_sweeps/cifar100/alpha_${tag}.yaml \
+      --method ${method} \
+      --rounds 300 \
+      --clients 50 \
+      --subset-size 0 \
+      --output-dir outputs/cifar100_alpha_sweep/alpha_${tag}/fl/${method} \
+      --fast-gpu \
+      --num-workers 8 \
+      --prefetch-factor 4 \
+      --batch-size 128
+  done
+done
 ```
 
 ## 概念说明
