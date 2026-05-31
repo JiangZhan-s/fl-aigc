@@ -52,7 +52,9 @@ def _empty_arrays(params: MechanismParams):
 
 
 def _make_result(params: MechanismParams, q, p, x, costs, modes) -> FixedModeResult:
-    server_utility = float(np.sum(x * params.V * phi(params.lambda_k, q, params.lambda_base)) - np.sum(costs))
+    # Server objective for the budget-constrained mechanism. Payments are
+    # reported as total_cost and constrained by B, not subtracted again here.
+    server_utility = float(np.sum(x * params.V * phi(params.lambda_k, q, params.lambda_base)))
     return FixedModeResult(
         feasible=True,
         q=q,

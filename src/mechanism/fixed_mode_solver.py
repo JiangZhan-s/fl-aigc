@@ -185,7 +185,9 @@ def solve_fixed_mode(
     if total_cost > B + max(tol, 1e-8):
         return _empty_result(num_clients, mode)
 
-    server_utility = float(np.sum(x * V * phi(lambda_k, q, lambda_base)) - total_cost)
+    # Server objective for the budget-constrained mechanism:
+    # maximize sum_k x_k V_k phi_k(q_k), with payment handled by total_cost <= B.
+    server_utility = float(np.sum(x * V * phi(lambda_k, q, lambda_base)))
     return FixedModeResult(
         feasible=True,
         q=q,

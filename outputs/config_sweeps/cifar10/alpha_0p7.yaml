@@ -19,7 +19,7 @@ mechanism:
   S_range:
   - 0.01
   - 0.05
-  value_scale: 40.0
+  value_scale: 20.0
   budget_ratio: 0.4
   exact_max_clients: 12
   active_set_max_iter: 30
