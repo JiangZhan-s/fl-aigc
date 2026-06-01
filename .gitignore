@@ -6,5 +6,4 @@ evaluation_results
 ppo_tensorboard_cifar100
 save
 aigc_imgs
-*.slurm
 aigc_imgs

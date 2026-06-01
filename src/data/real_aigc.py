@@ -61,10 +61,12 @@ class LabeledImagePoolDataset(Dataset):
 class CachedAIGCPoolDataset(Dataset):
     """Dataset backed by a tensor cache and selected synthetic indices."""
 
-    def __init__(self, images, labels, selected_indices):
+    def __init__(self, images, labels, selected_indices, mean, std):
         self.images = images
         self.labels = labels
         self.selected_indices = list(selected_indices)
+        self.mean = tuple(mean)
+        self.std = tuple(std)
 
     def __len__(self):
         """Return number of selected synthetic samples."""
@@ -74,17 +76,41 @@ class CachedAIGCPoolDataset(Dataset):
         """Return one cached generated image tensor and label."""
         source_index = int(self.selected_indices[index])
         image = self.images[source_index].float().div(255.0)
-        image = transforms.functional.normalize(image, (0.2860,), (0.3530,))
+        image = transforms.functional.normalize(image, self.mean, self.std)
         return image, int(self.labels[source_index])
 
 
-def _fmnist_real_transform():
-    """Return transform for generated FMNIST images."""
+def _dataset_spec(dataset_name: str):
+    """Return real AIGC image shape, mode, and normalization by dataset."""
+    normalized = dataset_name.lower()
+    if normalized in {"fmnist", "fashionmnist", "fashion_mnist"}:
+        return {
+            "name": "fmnist",
+            "shape": (1, 28, 28),
+            "size": (28, 28),
+            "mode": "L",
+            "mean": (0.2860,),
+            "std": (0.3530,),
+        }
+    if normalized == "cifar10":
+        return {
+            "name": "cifar10",
+            "shape": (3, 32, 32),
+            "size": (32, 32),
+            "mode": "RGB",
+            "mean": (0.4914, 0.4822, 0.4465),
+            "std": (0.2470, 0.2435, 0.2616),
+        }
+    raise ValueError("Real AIGC image augmentation currently supports FMNIST and CIFAR10")
+
+
+def _real_transform(spec):
+    """Return transform for generated images matching the base dataset."""
     return transforms.Compose(
         [
-            transforms.Resize((28, 28)),
+            transforms.Resize(spec["size"]),
             transforms.ToTensor(),
-            transforms.Normalize((0.2860,), (0.3530,)),
+            transforms.Normalize(spec["mean"], spec["std"]),
         ]
     )
 
@@ -97,10 +123,15 @@ def _load_class_dirs(aigc_root: Path, dataset_name: str, num_classes: int):
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
         classes = metadata.get("classes", [])
         mapping = {}
-        for item in classes:
-            class_id = int(item["id"])
-            if 0 <= class_id < num_classes:
-                mapping[class_id] = dataset_root / str(item["directory"])
+        for class_id, item in enumerate(classes):
+            if isinstance(item, dict):
+                mapped_id = int(item["id"])
+                directory = str(item["directory"])
+            else:
+                mapped_id = class_id
+                directory = str(item)
+            if 0 <= mapped_id < num_classes:
+                mapping[mapped_id] = dataset_root / directory
         return mapping
 
     return {class_id: dataset_root / str(class_id) for class_id in range(num_classes)}
@@ -134,13 +165,13 @@ def _list_image_pool(aigc_root: Path, dataset_name: str, num_classes: int):
     return pools
 
 
-def _load_cached_pool(cache_path: Path, num_classes: int):
+def _load_cached_pool(cache_path: Path, num_classes: int, expected_shape):
     """Return cache tensors and class-wise source index pools."""
     cache = load_aigc_tensor_cache(str(cache_path))
     images = cache["images"]
     labels = cache["labels"].long()
-    if images.ndim != 4 or images.shape[1:] != (1, 28, 28):
-        raise ValueError("FMNIST AIGC tensor cache must have shape [N, 1, 28, 28]")
+    if images.ndim != 4 or tuple(images.shape[1:]) != tuple(expected_shape):
+        raise ValueError(f"AIGC tensor cache must have shape [N, {', '.join(map(str, expected_shape))}]")
     if len(images) != len(labels):
         raise ValueError("AIGC tensor cache images and labels must align")
     pools = []
@@ -166,9 +197,8 @@ def build_real_aigc_augmented_dataset(
     cache_path: str = None,
 ) -> RealAIGCResult:
     """Append real generated images according to mechanism-selected q values."""
-    normalized_name = dataset_name.lower()
-    if normalized_name not in {"fmnist", "fashionmnist", "fashion_mnist"}:
-        raise ValueError("Real AIGC image augmentation is currently implemented for FMNIST only")
+    spec = _dataset_spec(dataset_name)
+    normalized_name = spec["name"]
 
     labels_array = np.asarray(labels, dtype=np.int64)
     q_array = np.asarray(q_values, dtype=np.float64)
@@ -185,14 +215,18 @@ def build_real_aigc_augmented_dataset(
         raise ValueError("max_extra_ratio must be non-negative")
 
     rng = np.random.default_rng(seed)
-    resolved_cache_path = Path(cache_path) if cache_path else default_cache_path(aigc_root, "fmnist")
+    resolved_cache_path = Path(cache_path) if cache_path else default_cache_path(aigc_root, normalized_name)
     use_cache = resolved_cache_path.exists()
     if use_cache:
-        cached_images, cached_labels, pools = _load_cached_pool(resolved_cache_path, num_classes)
+        cached_images, cached_labels, pools = _load_cached_pool(
+            resolved_cache_path,
+            num_classes,
+            spec["shape"],
+        )
     else:
         cached_images = None
         cached_labels = None
-        pools = _list_image_pool(Path(aigc_root), "fmnist", num_classes)
+        pools = _list_image_pool(Path(aigc_root), normalized_name, num_classes)
     if any(len(pool) == 0 for pool in pools):
         missing = [str(class_id) for class_id, pool in enumerate(pools) if len(pool) == 0]
         raise ValueError(f"Missing real AIGC image pool for class ids: {', '.join(missing)}")
@@ -274,12 +308,18 @@ def build_real_aigc_augmented_dataset(
         target_distributions.append(target_dist)
 
     if use_cache:
-        synthetic_dataset = CachedAIGCPoolDataset(cached_images, cached_labels, synthetic_source_indices)
+        synthetic_dataset = CachedAIGCPoolDataset(
+            cached_images,
+            cached_labels,
+            synthetic_source_indices,
+            spec["mean"],
+            spec["std"],
+        )
     else:
         synthetic_dataset = LabeledImagePoolDataset(
             synthetic_samples,
-            transform=_fmnist_real_transform(),
-            mode="L",
+            transform=_real_transform(spec),
+            mode=spec["mode"],
         )
     augmented_dataset = ConcatDataset([dataset, synthetic_dataset])
 
