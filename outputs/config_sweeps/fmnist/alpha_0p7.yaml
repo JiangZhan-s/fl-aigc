@@ -1,0 +1,50 @@
+seed: 42
+dataset:
+  name: fmnist
+  root: ./data
+  download: true
+  num_clients: 20
+  dirichlet_alpha: 0.7
+  min_size: 10
+  num_classes: 10
+  public_fraction: 0.02
+budget:
+  ratio: 0.3
+mechanism:
+  lambda_base: 1.0
+  alpha_range:
+  - 0.01
+  - 0.1
+  beta_range:
+  - 0.01
+  - 0.1
+  S_range:
+  - 0.01
+  - 0.1
+  value_scale: 20
+  budget_ratio: 0.3
+  max_clients_for_exact: 12
+  exact_max_clients: 12
+  active_set_max_iter: 30
+  tol: 1.0e-08
+fl:
+  model: smallcnn
+  rounds: 20
+  local_epochs: 1
+  batch_size: 64
+  lr: 0.01
+  momentum: 0.0
+  optimizer: sgd
+  client_fraction: 1.0
+  weight_decay: 0.0
+  max_grad_norm: 10.0
+aigc_proxy:
+  enabled: true
+  max_extra_ratio: 1.0
+  allow_replacement: true
+verification:
+  enabled: true
+  method: geodesic
+  tau: 0.5
+output:
+  dir: ./outputs

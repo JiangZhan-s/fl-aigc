@@ -728,18 +728,18 @@ done
 CIFAR10：
 
 ```bash
-for tag in 0p3 0p7 0p5; do
+for tag in 0p3 0p7 0p5 1; do
   python scripts/plot_results.py \
-    --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/no_aigc/fl_metrics.csv \
-    --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/random_incentive/fl_metrics.csv \
-    --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/binary_aigc/fl_metrics.csv \
-    --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/fixed_price/fl_metrics.csv \
-    --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/data_size_proportional/fl_metrics.csv \
-    --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/quality_gap_proportional/fl_metrics.csv \
-    --fl-csv outputs/cifar10_alpha_sweep/alpha_${tag}/fl/proposed_active_set/fl_metrics.csv \
-    --baseline-csv outputs/cifar10_alpha_sweep/alpha_${tag}/baselines/baseline_clients.csv \
-    --baseline-json outputs/cifar10_alpha_sweep/alpha_${tag}/baselines/baseline_summary.json \
-    --output-dir outputs/cifar10_alpha_sweep/alpha_${tag}/figures_fl_compare
+    --fl-csv outputs/cifar10_real_aigc_alpha_sweep/alpha_${tag}/fl/no_aigc/fl_metrics.csv \
+    --fl-csv outputs/cifar10_real_aigc_alpha_sweep/alpha_${tag}/fl/random_incentive/fl_metrics.csv \
+    --fl-csv outputs/cifar10_real_aigc_alpha_sweep/alpha_${tag}/fl/binary_aigc/fl_metrics.csv \
+    --fl-csv outputs/cifar10_real_aigc_alpha_sweep/alpha_${tag}/fl/fixed_price/fl_metrics.csv \
+    --fl-csv outputs/cifar10_real_aigc_alpha_sweep/alpha_${tag}/fl/data_size_proportional/fl_metrics.csv \
+    --fl-csv outputs/cifar10_real_aigc_alpha_sweep/alpha_${tag}/fl/quality_gap_proportional/fl_metrics.csv \
+    --fl-csv outputs/cifar10_real_aigc_alpha_sweep/alpha_${tag}/fl/proposed_active_set/fl_metrics.csv \
+    --baseline-csv outputs/cifar10_real_aigc_alpha_sweep/alpha_${tag}/baselines/baseline_clients.csv \
+    --baseline-json outputs/cifar10_real_aigc_alpha_sweep/alpha_${tag}/baselines/baseline_summary.json \
+    --output-dir outputs/cifar10_real_aigc_alpha_sweep/alpha_${tag}/figures_fl_compare
 done
 ```
 
