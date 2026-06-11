@@ -31,6 +31,21 @@ CIFAR10_CLASSES = [
     "truck",
 ]
 
+def resolve_cifar10_root(aigc_root: Path) -> Path:
+    """
+    Support both:
+    1. aigc_root/cifar10/airplane...
+    2. aigc_root/airplane...
+    3. aigc_root/cifar10_edm/airplane... when passed directly as aigc_root
+    """
+    if (aigc_root / "metadata.json").exists():
+        return aigc_root
+
+    if any((aigc_root / class_name).exists() for class_name in CIFAR10_CLASSES):
+        return aigc_root
+
+    return aigc_root / "cifar10"
+
 
 def _load_class_dirs(dataset_root: Path, num_classes: int):
     metadata_path = dataset_root / "metadata.json"
@@ -98,7 +113,7 @@ def build_fmnist_cache(aigc_root: Path, output_path: Path, num_classes: int = 10
 
 def build_cifar10_cache(aigc_root: Path, output_path: Path, num_classes: int = 10):
     """Build a uint8 [N, 3, 32, 32] CIFAR10-style tensor cache."""
-    dataset_root = aigc_root / "cifar10"
+    dataset_root = resolve_cifar10_root(aigc_root)
     class_dirs, metadata = _load_class_dirs(dataset_root, num_classes)
     resize = transforms.Resize((32, 32))
 
@@ -118,7 +133,7 @@ def build_cifar10_cache(aigc_root: Path, output_path: Path, num_classes: int = 1
 
         paths = sorted(
             path
-            for path in class_dir.iterdir()
+            for path in class_dir.rglob("*")
             if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS
         )
         counts[class_id] = len(paths)

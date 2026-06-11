@@ -78,7 +78,7 @@ for tag in ${TAGS}; do
       --rounds ${ROUNDS} \
       --clients 50 \
       --subset-size 0 \
-      --output-dir outputs/${DATASET}_real_aigc_alpha_sweep/alpha_${tag}/fl/${method} \
+      --output-dir outputs/${DATASET}_real_aigc_alpha_sweep_0611/alpha_${tag}/fl/${method} \
       --real-aigc \
       --aigc-root "${AIGC_ROOT}" \
       --aigc-cache "${AIGC_CACHE}" \

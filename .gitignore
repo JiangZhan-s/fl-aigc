@@ -7,3 +7,13 @@ ppo_tensorboard_cifar100
 save
 aigc_imgs
 aigc_imgs
+edm
+edm_modelsedm_models/*.pkl
+edm_models/
+
+edm_models/
+hf_cache/
+aigc_img/
+*.pkl
+*.safetensors
+*.bin

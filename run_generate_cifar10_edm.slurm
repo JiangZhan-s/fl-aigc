@@ -15,7 +15,6 @@
 cd $SLURM_SUBMIT_DIR
 mkdir -p logs
 mkdir -p edm_models
-mkdir -p aigc_imgs/cifar10
 
 module purge
 module load cuda/12.3
@@ -30,11 +29,11 @@ export PYTHONUNBUFFERED=1
 
 EDM_REPO="${SLURM_SUBMIT_DIR}/edm"
 EDM_MODEL="${SLURM_SUBMIT_DIR}/edm_models/edm-cifar10-32x32-cond-vp.pkl"
-OUT_DIR="${SLURM_SUBMIT_DIR}/aigc_imgs/cifar10"
-CACHE_PATH="${SLURM_SUBMIT_DIR}/aigc_imgs/cifar10/tensor_cache.pt"
+OUT_DIR="${SLURM_SUBMIT_DIR}/aigc_imgs/cifar10_edm"
+CACHE_PATH="${OUT_DIR}/tensor_cache.pt"
 
-IMAGES_PER_CLASS=${IMAGES_PER_CLASS:-1000}
-BATCH_SIZE=${BATCH_SIZE:-64}
+IMAGES_PER_CLASS=${IMAGES_PER_CLASS:-6000}
+BATCH_SIZE=${BATCH_SIZE:-256}
 STEPS=${STEPS:-18}
 
 echo "=== CIFAR10 EDM generation ==="
@@ -72,9 +71,9 @@ python -u scripts/generate_cifar10_edm_images.py \
   --batch-size "${BATCH_SIZE}" \
   --steps "${STEPS}"
 
-python -u scripts/build_aigc_cache.py \
+python scripts/build_aigc_cache.py \
   --dataset cifar10 \
-  --aigc-root ./aigc_imgs \
+  --aigc-root "${OUT_DIR}" \
   --output "${CACHE_PATH}"
 
 echo "Job End Time: $(date)"
