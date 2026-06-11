@@ -40,16 +40,15 @@ TAGS="0p3 0p5 0p7 1"
 METHODS="no_aigc random_incentive binary_aigc fixed_price data_size_proportional quality_gap_proportional proposed_active_set"
 
 AIGC_ROOT=./aigc_imgs
-AIGC_CACHE=./aigc_imgs/cifar10/tensor_cache.pt
+AIGC_CACHE=${AIGC_CACHE:-./aigc_imgs/cifar10_edm/tensor_cache.pt}
 
-# Build the tensor cache once if it does not exist. This avoids repeatedly
-# opening tens of thousands of generated image files during training.
+# Use the prebuilt EDM tensor cache. Do not silently rebuild from
+# ./aigc_imgs/cifar10, because that may point to the old Stable Diffusion pool.
 if [ ! -f "${AIGC_CACHE}" ]; then
-  echo "[$(date)] building AIGC tensor cache: ${AIGC_CACHE}"
-  python scripts/build_aigc_cache.py \
-    --dataset cifar10 \
-    --aigc-root "${AIGC_ROOT}" \
-    --output "${AIGC_CACHE}"
+  echo "ERROR: missing CIFAR10 EDM AIGC cache: ${AIGC_CACHE}"
+  echo "Copy your packed EDM cache to ./aigc_imgs/cifar10_edm/tensor_cache.pt"
+  echo "or submit with: sbatch --export=ALL,AIGC_CACHE=/absolute/path/tensor_cache.pt run_aigc_cifar10_real.slurm"
+  exit 1
 fi
 
 # A800 80G can usually run several lightweight FL jobs concurrently. If the
@@ -78,7 +77,7 @@ for tag in ${TAGS}; do
       --rounds ${ROUNDS} \
       --clients 50 \
       --subset-size 0 \
-      --output-dir outputs/${DATASET}_real_aigc_alpha_sweep_0611/alpha_${tag}/fl/${method} \
+      --output-dir outputs/${DATASET}_edm_aigc_alpha_sweep_0611/alpha_${tag}/fl/${method} \
       --real-aigc \
       --aigc-root "${AIGC_ROOT}" \
       --aigc-cache "${AIGC_CACHE}" \
