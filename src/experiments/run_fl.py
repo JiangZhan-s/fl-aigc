@@ -27,7 +27,7 @@ from src.experiments.run_mechanism import budget_ratio_from_config, dataset_conf
 from src.fl.models import SmallCNNCIFAR, build_model, resnet18_cifar
 from src.fl.server import run_fedavg
 from src.mechanism.client_response import best_response_q, client_utility
-from src.utils.device import get_device
+from src.utils.device import describe_device, get_device
 from src.utils.seed import set_seed
 
 
@@ -239,7 +239,9 @@ def run_end_to_end(
 
     data_cfg = dataset_config(config)
     fl_cfg = config.get("fl", {})
-    if bool(fl_cfg.get("cuda_benchmark", False)) and get_device().type == "cuda":
+    device = get_device()
+    print(f"[device] {describe_device(device)}", flush=True)
+    if bool(fl_cfg.get("cuda_benchmark", False)) and device.type == "cuda":
         import torch
 
         torch.backends.cudnn.benchmark = True
@@ -345,7 +347,7 @@ def run_end_to_end(
         train_dataset=train_dataset_for_fl,
         test_dataset=test_dataset,
         client_indices=augmentation.client_indices_aug,
-        device=get_device(),
+        device=device,
         rounds=int(fl_cfg.get("rounds", 2)),
         batch_size=int(fl_cfg.get("batch_size", 64)),
         local_epochs=int(fl_cfg.get("local_epochs", 1)),
