@@ -234,6 +234,42 @@ budget_used
 participation_rate
 ```
 
+## 真实 AIGC 图像生成
+
+如果 Stable Diffusion 生成 CIFAR10 效果不好，推荐改用 NVlabs EDM 的
+CIFAR-10 class-conditional generator。EDM 原生生成 32x32 CIFAR10 图像，
+不需要先生成高分辨率再缩放。
+
+在线准备一次 EDM 代码和模型：
+
+```bash
+cd /home/wuyi/newModel/fl_aigc
+git clone https://github.com/NVlabs/edm.git
+mkdir -p edm_models
+wget -O edm_models/edm-cifar10-32x32-cond-vp.pkl \
+  https://nvlabs-fi-cdn.nvidia.com/edm/pretrained/edm-cifar10-32x32-cond-vp.pkl
+```
+
+离线集群生成 CIFAR10，每类 1000 张，总计 10000 张：
+
+```bash
+cd /home/wuyi/newModel/fl_aigc
+python scripts/generate_cifar10_edm_images.py \
+  --edm-repo ./edm \
+  --network ./edm_models/edm-cifar10-32x32-cond-vp.pkl \
+  --output-dir ./aigc_imgs/cifar10 \
+  --images-per-class 1000 \
+  --batch-size 64
+```
+
+生成后构建真实 AIGC tensor cache：
+
+```bash
+python scripts/build_aigc_cache.py \
+  --dataset cifar10 \
+  --aigc-root ./aigc_imgs
+```
+
 ## 绘图
 
 绘图脚本会从已有 CSV/JSON 读取结果。缺少某类输入时，会跳过对应图。
