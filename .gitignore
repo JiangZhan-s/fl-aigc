@@ -17,3 +17,6 @@ aigc_img/
 *.pkl
 *.safetensors
 *.bin
+
+stylegan-xl
+stylegan_models
