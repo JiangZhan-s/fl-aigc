@@ -12,6 +12,8 @@
 #SBATCH -o logs/job_%j.out
 #SBATCH -e logs/job_%j.err
 
+set -euo pipefail
+
 cd $SLURM_SUBMIT_DIR
 mkdir -p logs
 mkdir -p styleganxl_models
@@ -66,6 +68,40 @@ if [ ! -f "${STYLEGANXL_MODEL}" ]; then
   echo "wget -O ${STYLEGANXL_MODEL} https://s3.eu-central-1.amazonaws.com/avg-projects/stylegan_xl/models/imagenet32.pkl"
   exit 1
 fi
+
+${PYTHON_BIN} - <<'PY'
+import importlib
+checks = {
+    "torch": "torch",
+    "numpy": "numpy",
+    "PIL": "pillow",
+    "tqdm": "tqdm",
+    "dill": "dill",
+    "click": "click",
+    "scipy": "scipy",
+    "requests": "requests",
+    "ninja": "ninja",
+    "imageio": "imageio",
+    "psutil": "psutil",
+    "regex": "regex",
+    "pyspng": "pyspng",
+    "timm": "timm",
+}
+missing = []
+for module_name, package_name in checks.items():
+    try:
+        importlib.import_module(module_name)
+    except Exception:
+        missing.append(package_name)
+if missing:
+    raise SystemExit(
+        "Missing Python packages: "
+        + ", ".join(missing)
+        + "\nInstall in the active conda env, e.g. pip install "
+        + " ".join(dict.fromkeys(missing))
+    )
+print("dependency check: OK")
+PY
 
 ${PYTHON_BIN} -u scripts/generate_cifar100_styleganxl_images.py \
   --styleganxl-repo "${STYLEGANXL_REPO}" \

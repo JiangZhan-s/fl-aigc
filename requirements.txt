@@ -12,3 +12,12 @@ transformers
 accelerate
 safetensors
 pillow
+dill
+click
+requests
+ninja
+imageio
+psutil
+regex
+pyspng
+timm
