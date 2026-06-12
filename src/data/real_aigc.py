@@ -92,16 +92,16 @@ def _dataset_spec(dataset_name: str):
             "mean": (0.2860,),
             "std": (0.3530,),
         }
-    if normalized == "cifar10":
+    if normalized in {"cifar10", "cifar100"}:
         return {
-            "name": "cifar10",
+            "name": normalized,
             "shape": (3, 32, 32),
             "size": (32, 32),
             "mode": "RGB",
             "mean": (0.4914, 0.4822, 0.4465),
             "std": (0.2470, 0.2435, 0.2616),
         }
-    raise ValueError("Real AIGC image augmentation currently supports FMNIST and CIFAR10")
+    raise ValueError("Real AIGC image augmentation currently supports FMNIST, CIFAR10, and CIFAR100")
 
 
 def _real_transform(spec):
