@@ -12,7 +12,7 @@
 #SBATCH -o logs/job_%j.out
 #SBATCH -e logs/job_%j.err
 
-set -euo pipefail
+set -eo pipefail
 
 cd $SLURM_SUBMIT_DIR
 mkdir -p logs
@@ -24,6 +24,8 @@ module load cuda/12.3
 
 source ~/.bashrc
 source activate aigc39 || conda activate aigc39
+
+set -u
 
 export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
 export OMP_NUM_THREADS=2
@@ -101,6 +103,15 @@ if missing:
         + " ".join(dict.fromkeys(missing))
     )
 print("dependency check: OK")
+import timm
+if timm.__version__ != "0.4.12":
+    raise SystemExit(
+        "Incompatible timm version: "
+        + timm.__version__
+        + "\nStyleGAN-XL official environment uses timm==0.4.12."
+        + "\nInstall with: pip uninstall -y timm && pip install timm==0.4.12"
+    )
+print("timm version check: OK, timm==0.4.12")
 PY
 
 ${PYTHON_BIN} -u scripts/generate_cifar100_styleganxl_images.py \

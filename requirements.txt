@@ -20,4 +20,4 @@ imageio
 psutil
 regex
 pyspng
-timm
+timm==0.4.12

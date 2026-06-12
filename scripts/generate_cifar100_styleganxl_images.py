@@ -296,6 +296,14 @@ def load_generator(styleganxl_repo: Path, network: str):
     import dnnlib
     import legacy
     import torch
+    import timm
+
+    if timm.__version__ != "0.4.12":
+        raise RuntimeError(
+            "Incompatible timm version: "
+            f"{timm.__version__}. StyleGAN-XL ImageNet32 checkpoint expects timm==0.4.12. "
+            "Install with: pip uninstall -y timm && pip install timm==0.4.12"
+        )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     with dnnlib.util.open_url(network) as handle:
@@ -368,16 +376,20 @@ def generate_class_images(
     class_dir.mkdir(parents=True, exist_ok=True)
     start_index = existing_count(class_dir)
     if start_index >= args.images_per_class:
+        print(
+            f"[generate] class={class_id:03d} name={class_name} "
+            f"existing={start_index} target={args.images_per_class} skip",
+            flush=True,
+        )
         return
-
-    from tqdm import tqdm
 
     imagenet_class_id = CIFAR100_TO_IMAGENET32[class_id]
     image_index = start_index
-    progress = tqdm(
-        total=args.images_per_class - start_index,
-        desc=f"{class_id:03d} {class_name}->{imagenet_class_id}",
-        leave=False,
+    print(
+        f"[generate] class={class_id:03d} name={class_name} "
+        f"imagenet_class={imagenet_class_id} existing={start_index} "
+        f"target={args.images_per_class}",
+        flush=True,
     )
 
     while image_index < args.images_per_class:
@@ -388,9 +400,11 @@ def generate_class_images(
         images = generate_batch(generator, device, imagenet_class_id, seeds)
         save_pngs(images, paths)
         image_index += current_batch
-        progress.update(current_batch)
-
-    progress.close()
+        print(
+            f"[generate] class={class_id:03d} name={class_name} "
+            f"done={image_index}/{args.images_per_class}",
+            flush=True,
+        )
 
 
 def main() -> None:
