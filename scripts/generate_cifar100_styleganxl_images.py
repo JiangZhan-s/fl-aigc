@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -394,8 +395,8 @@ def generate_class_images(
 
 def main() -> None:
     args = parse_args()
-    requested_python = Path(args.python).expanduser()
-    current_python = Path(sys.executable)
+    requested_python = Path(shutil.which(args.python) or args.python).expanduser().resolve()
+    current_python = Path(sys.executable).resolve()
     if (
         str(requested_python) != str(current_python)
         and os.environ.get("STYLEGANXL_WRAPPER_REEXEC") != "1"
